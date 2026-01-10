@@ -6,24 +6,37 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MaterialTheme.typography
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -107,36 +120,86 @@ fun JokeScreen(modifier: Modifier = Modifier) {
     val text by viewModel.jokeText.collectAsState()
     val context = LocalContext.current
 
-    Column(
-        modifier = modifier.fillMaxSize().padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+    // Используем Box для наложения слоев
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background) // Задаем фон всему экрану
     ) {
-        Text(
-            text = "Случайный анекдот",
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = modifier
-        )
+        // 1. Область с текстом (скролл)
+        // Мы кладем её первой, чтобы она была самым нижним слоем
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp)
+                // Важно: делаем отступы сверху и снизу, чтобы текст
+                // начинался ниже заголовка и заканчивался выше кнопок
+                .padding(top = 80.dp, bottom = 100.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = text,
+                style = typography.bodyLarge
+            )
+        }
 
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = modifier
-        )
+        // 2. Заголовок с непрозрачным фоном
+        Surface(
+            modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter),
+            color = MaterialTheme.colorScheme.background // Закрывает текст под собой
+        ) {
+            Text(
+                text = "Случайный анекдот",
+                style = typography.headlineMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    textDecoration = TextDecoration.Underline,
+                    fontSize = (typography.headlineMedium.fontSize.value + 2).sp
+                ),
+                modifier = Modifier
+                    .padding(16.dp)
+                    .wrapContentWidth(Alignment.CenterHorizontally)
+            )
+        }
 
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-            Button(onClick = { viewModel.fetchNextJoke() }) {
-                Text("Следующий")
+        // 3. Плавающие кнопки (Floating Action Buttons)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter)
+                .background(
+                    // Делаем легкий градиент или просто плашку у кнопок,
+                    // чтобы текст под ними не мешал нажимать
+                    brush = Brush.verticalGradient(
+                        colors = listOf(Color.Transparent, MaterialTheme.colorScheme.background),
+                        startY = 0f,
+                        endY = 100f
+                    )
+                )
+                .padding(bottom = 32.dp, top = 20.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            FloatingActionButton(
+                onClick = { viewModel.fetchNextJoke() },
+                containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                contentColor = Color.White
+            ) {
+                Text("Ещё!", modifier = Modifier.padding(horizontal = 16.dp))
             }
-            Button(onClick = {
-                val sendIntent = Intent().apply {
-                    action = Intent.ACTION_SEND
-                    putExtra(Intent.EXTRA_TEXT, text)
-                    type = "text/plain"
-                }
-                context.startActivity(Intent.createChooser(sendIntent, null))
-            }) {
-                Text("Поделиться")
+
+            FloatingActionButton(
+                onClick = {
+                    val sendIntent = Intent().apply {
+                        action = Intent.ACTION_SEND
+                        putExtra(Intent.EXTRA_TEXT, text)
+                        type = "text/plain"
+                    }
+                    context.startActivity(Intent.createChooser(sendIntent, null))
+                },
+                containerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.8f),
+                contentColor = Color.White
+            ) {
+                Text("Share", modifier = Modifier.padding(horizontal = 16.dp))
             }
         }
     }
