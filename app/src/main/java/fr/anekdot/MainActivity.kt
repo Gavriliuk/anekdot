@@ -218,9 +218,11 @@ fun JokeScreen(modifier: Modifier = Modifier) {
 
                 FloatingActionButton(
                     onClick = {
+                        val appUrl = "https://anekdot.fr/joke"
+                        val shareText = "$text\n\nИсточник: $appUrl"
                         val sendIntent = Intent().apply {
                             action = Intent.ACTION_SEND
-                            putExtra(Intent.EXTRA_TEXT, text)
+                            putExtra(Intent.EXTRA_TEXT, shareText)
                             type = "text/plain"
                         }
                         context.startActivity(Intent.createChooser(sendIntent, null))
