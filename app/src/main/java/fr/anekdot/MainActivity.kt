@@ -16,12 +16,22 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
 import fr.anekdot.ui.theme.AnekdotTheme
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+
+class JokeViewModel : ViewModel() {
+    private val _jokeText = MutableStateFlow("Нажми на кнопку, чтобы получить анекдот")
+    val jokeText = _jokeText.asStateFlow()
+}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -31,7 +41,6 @@ class MainActivity : ComponentActivity() {
             AnekdotTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     JokeScreen(
-                        name = "Android",
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
@@ -41,8 +50,9 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun JokeScreen(name: String, modifier: Modifier = Modifier) {
-    val text = "Hello $name!"
+fun JokeScreen(modifier: Modifier = Modifier) {
+    val viewModel = JokeViewModel()
+    val text by viewModel.jokeText.collectAsState()
     val context = LocalContext.current
 
     Column(
@@ -84,6 +94,6 @@ fun JokeScreen(name: String, modifier: Modifier = Modifier) {
 @Composable
 fun JokeScreenPreview() {
     AnekdotTheme {
-        JokeScreen("Android")
+        JokeScreen()
     }
 }
