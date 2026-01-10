@@ -2,6 +2,7 @@ package fr.anekdot
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -57,11 +58,15 @@ class JokeViewModel : ViewModel() {
         .create(AnekdotApi::class.java)
 
     fun fetchNextJoke() {
+        Log.d("JokeDebug", "Функция вызвана") // D - Debug
         viewModelScope.launch {
             try {
+                Log.d("JokeDebug", "Начинаем запрос...")
                 val response = _api.getRandomJoke()
-                _jokeText.value = response.text
+                Log.d("JokeDebug", "Успех: ${response.p.text}")
+                _jokeText.value = response.p.text
             } catch (e: Exception) {
+                Log.e("JokeDebug", "Ошибка запроса", e)
                 _jokeText.value = "Ошибка: ${e.message}"
             }
         }
