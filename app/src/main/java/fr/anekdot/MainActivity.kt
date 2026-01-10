@@ -7,7 +7,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,34 +14,31 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MaterialTheme.typography
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -60,6 +56,15 @@ import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import retrofit2.http.GET
 
+// Пары цветов для градиента (Start Color, End Color)
+val gradientPresets = listOf(
+    Color(0xFFFF9A9E) to Color(0xFFFAD0C4), // Нежно-розовый
+    Color(0xFFA18CD1) to Color(0xFFFBC2EB), // Сиреневый
+    Color(0xFF84FAB0) to Color(0xFF8FD3F4), // Мятно-голубой
+    Color(0xFFF6D365) to Color(0xFFFDA085), // Солнечно-оранжевый
+    Color(0xFFCFD9DF) to Color(0xFFE2E2E2), // Светло-серый жемчуг
+    Color(0xFFA8E063) to Color(0xFF56AB2F)  // Сочное яблоко
+)
 @Serializable
 data class JokeContent(
     val text: String
@@ -76,11 +81,15 @@ interface AnekdotApi {
 }
 
 class JokeViewModel : ViewModel() {
-    private val _jokeText = MutableStateFlow("Нажми на кнопку - получишь анекдот")
+    private val _jokeText = MutableStateFlow("Нажми на кнопку -\nполучишь анекдот")
     val jokeText = _jokeText.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading = _isLoading.asStateFlow()
+
+    // Состояние текущего градиента (храним индекс пары)
+    private val _gradientIndex = MutableStateFlow(0)
+    val gradientIndex = _gradientIndex.asStateFlow()
 
     private val _jsonConfig = Json {
         ignoreUnknownKeys = true // Игнорировать поля, которых нет в нашем классе
@@ -104,6 +113,8 @@ class JokeViewModel : ViewModel() {
                 val response = _api.getRandomJoke()
                 //Log.d("JokeDebug", "Успех: ${response.p.text}")
                 _jokeText.value = response.p.text
+                // Выбираем новый случайный индекс градиента
+                _gradientIndex.value = (gradientPresets.indices).random()
             } catch (e: Exception) {
                 Log.e("JokeDebug", "Ошибка запроса", e)
                 _jokeText.value = "Ошибка: ${e.message}"
@@ -135,116 +146,100 @@ fun JokeScreen(modifier: Modifier = Modifier) {
     val viewModel: JokeViewModel = viewModel()
     val text by viewModel.jokeText.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val gIndex by viewModel.gradientIndex.collectAsState()
     val context = LocalContext.current
 
-    // Используем Box для наложения слоев
+    val (startColor, endColor) = gradientPresets[gIndex]
+
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background) // Задаем фон всему экрану
+            .background(Brush.verticalGradient(listOf(startColor, endColor)))
     ) {
-        // 1. Область с текстом (скролл)
-        // Мы кладем её первой, чтобы она была самым нижним слоем
+        // Основной контент теперь занимает всё место, центрируясь
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .padding(horizontal = 20.dp)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp)
-                // Важно: делаем отступы сверху и снизу, чтобы текст
-                // начинался ниже заголовка и заканчивался выше кнопок
-                .padding(top = 80.dp, bottom = 100.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(top = 20.dp, bottom = 120.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
             if (isLoading) {
+                // Большая белая крутилка на цветном фоне
                 CircularProgressIndicator(
-                    modifier = Modifier.padding(16.dp),
-                    color = MaterialTheme.colorScheme.primary
+                    modifier = Modifier.size(64.dp),
+                    color = Color.White,
+                    strokeWidth = 6.dp
                 )
             } else {
-                Text(
-                    text = text,
-                    style = typography.bodyLarge
-                )
+                Card(
+                    //modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(32.dp),
+                    colors = CardDefaults.cardColors(
+                        // Эффект матового стекла (90% прозрачности)
+                        containerColor = Color.White.copy(alpha = 0.92f)
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
+                ) {
+                    Text(
+                        text = text, // Use "$text\n$text" for layout debug
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontSize = 20.sp,
+                            lineHeight = 28.sp // Добавим межстрочный интервал для удобства чтения
+                        ),
+                        modifier = Modifier.padding(28.dp)
+                    )
+                }
             }
         }
 
-        // 2. Заголовок с непрозрачным фоном
-        Surface(
-            modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter),
-            color = MaterialTheme.colorScheme.background // Закрывает текст под собой
+        // Кнопки остаются внизу, они теперь главные акценты
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 48.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            Text(
-                text = "Случайный анекдот",
-                style = typography.headlineMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    textDecoration = TextDecoration.Underline,
-                    fontSize = (typography.headlineMedium.fontSize.value + 2).sp
-                ),
-                modifier = Modifier
-                    .padding(16.dp)
-                    .wrapContentWidth(Alignment.CenterHorizontally)
-            )
-        }
-
-        // 3. Плавающие кнопки (Floating Action Buttons)
-        Box(modifier = Modifier.align(Alignment.BottomCenter)) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .alpha(if (isLoading) 0.5f else 1f)
-                    .background(
-                        // Делаем легкий градиент или просто плашку у кнопок,
-                        // чтобы текст под ними не мешал нажимать
-                        brush = Brush.verticalGradient(
-                            colors = listOf(Color.Transparent, MaterialTheme.colorScheme.background),
-                            startY = 0f,
-                            endY = 100f
-                        )
-                    )
-                    .padding(bottom = 32.dp, top = 20.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly
+            // Кнопка "Следующий"
+            FloatingActionButton(
+                onClick = { if (!isLoading) viewModel.fetchNextJoke() },
+                shape = CircleShape,
+                containerColor = Color.White,
+                contentColor = startColor,
+                elevation = FloatingActionButtonDefaults.elevation(8.dp)
             ) {
-                FloatingActionButton(
-                    onClick = { viewModel.fetchNextJoke() },
-                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-                    contentColor = Color.White,
-                    shape = CircleShape
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = "Следующий"
-                    )
-                }
+                Icon(
+                    imageVector = Icons.Default.Refresh,
+                    contentDescription = "Следующий",
+                    modifier = Modifier.size(30.dp)
+                )
+            }
 
-                FloatingActionButton(
-                    onClick = {
-                        val appUrl = "https://anekdot.fr/joke"
-                        val shareText = "$text\n\nИсточник: $appUrl"
+            // Кнопка "Поделиться"
+            FloatingActionButton(
+                onClick = {
+                    if (!isLoading) {
+                        val shareText = "$text\n\nСмейся больше здесь: https://anekdot.fr/"
                         val sendIntent = Intent().apply {
                             action = Intent.ACTION_SEND
                             putExtra(Intent.EXTRA_TEXT, shareText)
                             type = "text/plain"
                         }
                         context.startActivity(Intent.createChooser(sendIntent, null))
-                    },
-                    containerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.8f),
-                    contentColor = Color.White,
-                    shape = CircleShape
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Share,
-                        contentDescription = "Поделиться"
-                    )
-                }
-            }
-            // Если идет загрузка, перекрываем кнопки невидимым кликабельным слоем
-            if (isLoading) {
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .pointerInput(Unit) {
-                            detectTapGestures { } // поглощаем клики, ничего не делая
-                        }
+                    }
+                },
+                shape = CircleShape,
+                containerColor = Color.White,
+                contentColor = endColor,
+                elevation = FloatingActionButtonDefaults.elevation(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Share,
+                    contentDescription = "Поделиться",
+                    modifier = Modifier.size(30.dp)
                 )
             }
         }
