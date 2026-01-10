@@ -60,6 +60,7 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.converter.kotlinx.serialization)
     implementation(libs.converter.kotlinx.serialization.json)
+    implementation(libs.androidx.compose.material.icons.extended)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

@@ -17,9 +17,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MaterialTheme.typography
 import androidx.compose.material3.Scaffold
@@ -202,9 +207,13 @@ fun JokeScreen(modifier: Modifier = Modifier) {
                 FloatingActionButton(
                     onClick = { viewModel.fetchNextJoke() },
                     containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-                    contentColor = Color.White
+                    contentColor = Color.White,
+                    shape = CircleShape
                 ) {
-                    Text("Ещё!", modifier = Modifier.padding(horizontal = 16.dp))
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Следующий"
+                    )
                 }
 
                 FloatingActionButton(
@@ -217,9 +226,13 @@ fun JokeScreen(modifier: Modifier = Modifier) {
                         context.startActivity(Intent.createChooser(sendIntent, null))
                     },
                     containerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.8f),
-                    contentColor = Color.White
+                    contentColor = Color.White,
+                    shape = CircleShape
                 ) {
-                    Text("Share", modifier = Modifier.padding(horizontal = 16.dp))
+                    Icon(
+                        imageVector = Icons.Default.Share,
+                        contentDescription = "Поделиться"
+                    )
                 }
             }
             // Если идет загрузка, перекрываем кнопки невидимым кликабельным слоем
