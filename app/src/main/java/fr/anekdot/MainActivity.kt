@@ -26,6 +26,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
 import fr.anekdot.ui.theme.AnekdotTheme
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -102,7 +103,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun JokeScreen(modifier: Modifier = Modifier) {
-    val viewModel = JokeViewModel()
+    val viewModel: JokeViewModel = viewModel()
     val text by viewModel.jokeText.collectAsState()
     val context = LocalContext.current
 
