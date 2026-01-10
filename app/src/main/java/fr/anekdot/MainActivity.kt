@@ -24,13 +24,44 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import fr.anekdot.ui.theme.AnekdotTheme
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+import retrofit2.Retrofit
+import retrofit2.http.GET
+
+@Serializable
+data class JokeResponse(
+    val text: String
+)
+
+interface AnekdotApi {
+    @GET("joke?a=")
+    suspend fun getRandomJoke() : JokeResponse
+}
 
 class JokeViewModel : ViewModel() {
     private val _jokeText = MutableStateFlow("Нажми на кнопку, чтобы получить анекдот")
     val jokeText = _jokeText.asStateFlow()
+
+    private val _api = Retrofit.Builder()
+        .baseUrl("https://anekdot.fr/")
+        .build()
+        .create(AnekdotApi::class.java)
+
+    fun fetchNextJoke() {
+        viewModelScope.launch {
+            try {
+                val response = _api.getRandomJoke()
+                _jokeText.value = response.text
+            } catch (e: Exception) {
+                _jokeText.value = "Ошибка: ${e.message}"
+            }
+        }
+    }
 }
 
 class MainActivity : ComponentActivity() {
@@ -73,7 +104,7 @@ fun JokeScreen(modifier: Modifier = Modifier) {
         )
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-            Button(onClick = {  }) {
+            Button(onClick = { viewModel.fetchNextJoke() }) {
                 Text("Следующий")
             }
             Button(onClick = {
