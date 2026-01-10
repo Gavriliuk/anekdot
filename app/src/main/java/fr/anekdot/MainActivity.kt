@@ -30,7 +30,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import okhttp3.MediaType.Companion.toMediaType
 import retrofit2.Retrofit
+import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import retrofit2.http.GET
 
 @Serializable
@@ -49,6 +52,7 @@ class JokeViewModel : ViewModel() {
 
     private val _api = Retrofit.Builder()
         .baseUrl("https://anekdot.fr/")
+        .addConverterFactory(Json.asConverterFactory("application/json".toMediaType()))
         .build()
         .create(AnekdotApi::class.java)
 
