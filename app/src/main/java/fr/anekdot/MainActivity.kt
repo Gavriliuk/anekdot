@@ -38,8 +38,13 @@ import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import retrofit2.http.GET
 
 @Serializable
-data class JokeResponse(
+data class JokeContent(
     val text: String
+)
+
+@Serializable
+data class JokeResponse(
+    val p: JokeContent
 )
 
 interface AnekdotApi {
@@ -51,9 +56,15 @@ class JokeViewModel : ViewModel() {
     private val _jokeText = MutableStateFlow("Нажми на кнопку, чтобы получить анекдот")
     val jokeText = _jokeText.asStateFlow()
 
+    private val _jsonConfig = Json {
+        ignoreUnknownKeys = true // Игнорировать поля, которых нет в нашем классе
+        coerceInputValues = true // На всякий случай, чтобы не падать на null
+    }
+    private val _contentType = "application/json".toMediaType()
+    private val _jsonFactory = _jsonConfig.asConverterFactory(_contentType)
     private val _api = Retrofit.Builder()
         .baseUrl("https://anekdot.fr/")
-        .addConverterFactory(Json.asConverterFactory("application/json".toMediaType()))
+        .addConverterFactory(_jsonFactory)
         .build()
         .create(AnekdotApi::class.java)
 
