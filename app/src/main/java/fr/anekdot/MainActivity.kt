@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MaterialTheme.typography
@@ -28,6 +29,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -70,6 +72,9 @@ class JokeViewModel : ViewModel() {
     private val _jokeText = MutableStateFlow("Нажми на кнопку, чтобы получить анекдот")
     val jokeText = _jokeText.asStateFlow()
 
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading = _isLoading.asStateFlow()
+
     private val _jsonConfig = Json {
         ignoreUnknownKeys = true // Игнорировать поля, которых нет в нашем классе
         coerceInputValues = true // На всякий случай, чтобы не падать на null
@@ -83,16 +88,20 @@ class JokeViewModel : ViewModel() {
         .create(AnekdotApi::class.java)
 
     fun fetchNextJoke() {
-        Log.d("JokeDebug", "Функция вызвана") // D - Debug
+        if (_isLoading.value) return
+        //Log.d("JokeDebug", "Функция вызвана") // D - Debug
         viewModelScope.launch {
             try {
-                Log.d("JokeDebug", "Начинаем запрос...")
+                _isLoading.value = true
+                //Log.d("JokeDebug", "Начинаем запрос...")
                 val response = _api.getRandomJoke()
-                Log.d("JokeDebug", "Успех: ${response.p.text}")
+                //Log.d("JokeDebug", "Успех: ${response.p.text}")
                 _jokeText.value = response.p.text
             } catch (e: Exception) {
                 Log.e("JokeDebug", "Ошибка запроса", e)
                 _jokeText.value = "Ошибка: ${e.message}"
+            } finally {
+                _isLoading.value = false
             }
         }
     }
@@ -118,6 +127,7 @@ class MainActivity : ComponentActivity() {
 fun JokeScreen(modifier: Modifier = Modifier) {
     val viewModel: JokeViewModel = viewModel()
     val text by viewModel.jokeText.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
     val context = LocalContext.current
 
     // Используем Box для наложения слоев
@@ -138,10 +148,17 @@ fun JokeScreen(modifier: Modifier = Modifier) {
                 .padding(top = 80.dp, bottom = 100.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = text,
-                style = typography.bodyLarge
-            )
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.padding(16.dp),
+                    color = MaterialTheme.colorScheme.primary
+                )
+            } else {
+                Text(
+                    text = text,
+                    style = typography.bodyLarge
+                )
+            }
         }
 
         // 2. Заголовок с непрозрачным фоном
@@ -167,6 +184,7 @@ fun JokeScreen(modifier: Modifier = Modifier) {
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
+                .alpha(if (isLoading) 0.5f else 1f)
                 .background(
                     // Делаем легкий градиент или просто плашку у кнопок,
                     // чтобы текст под ними не мешал нажимать
