@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -69,7 +71,7 @@ interface AnekdotApi {
 }
 
 class JokeViewModel : ViewModel() {
-    private val _jokeText = MutableStateFlow("Нажми на кнопку, чтобы получить анекдот")
+    private val _jokeText = MutableStateFlow("Нажми на кнопку - получишь анекдот")
     val jokeText = _jokeText.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
@@ -180,44 +182,55 @@ fun JokeScreen(modifier: Modifier = Modifier) {
         }
 
         // 3. Плавающие кнопки (Floating Action Buttons)
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomCenter)
-                .alpha(if (isLoading) 0.5f else 1f)
-                .background(
-                    // Делаем легкий градиент или просто плашку у кнопок,
-                    // чтобы текст под ними не мешал нажимать
-                    brush = Brush.verticalGradient(
-                        colors = listOf(Color.Transparent, MaterialTheme.colorScheme.background),
-                        startY = 0f,
-                        endY = 100f
+        Box(modifier = Modifier.align(Alignment.BottomCenter)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .alpha(if (isLoading) 0.5f else 1f)
+                    .background(
+                        // Делаем легкий градиент или просто плашку у кнопок,
+                        // чтобы текст под ними не мешал нажимать
+                        brush = Brush.verticalGradient(
+                            colors = listOf(Color.Transparent, MaterialTheme.colorScheme.background),
+                            startY = 0f,
+                            endY = 100f
+                        )
                     )
-                )
-                .padding(bottom = 32.dp, top = 20.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            FloatingActionButton(
-                onClick = { viewModel.fetchNextJoke() },
-                containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-                contentColor = Color.White
+                    .padding(bottom = 32.dp, top = 20.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                Text("Ещё!", modifier = Modifier.padding(horizontal = 16.dp))
-            }
+                FloatingActionButton(
+                    onClick = { viewModel.fetchNextJoke() },
+                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                    contentColor = Color.White
+                ) {
+                    Text("Ещё!", modifier = Modifier.padding(horizontal = 16.dp))
+                }
 
-            FloatingActionButton(
-                onClick = {
-                    val sendIntent = Intent().apply {
-                        action = Intent.ACTION_SEND
-                        putExtra(Intent.EXTRA_TEXT, text)
-                        type = "text/plain"
-                    }
-                    context.startActivity(Intent.createChooser(sendIntent, null))
-                },
-                containerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.8f),
-                contentColor = Color.White
-            ) {
-                Text("Share", modifier = Modifier.padding(horizontal = 16.dp))
+                FloatingActionButton(
+                    onClick = {
+                        val sendIntent = Intent().apply {
+                            action = Intent.ACTION_SEND
+                            putExtra(Intent.EXTRA_TEXT, text)
+                            type = "text/plain"
+                        }
+                        context.startActivity(Intent.createChooser(sendIntent, null))
+                    },
+                    containerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.8f),
+                    contentColor = Color.White
+                ) {
+                    Text("Share", modifier = Modifier.padding(horizontal = 16.dp))
+                }
+            }
+            // Если идет загрузка, перекрываем кнопки невидимым кликабельным слоем
+            if (isLoading) {
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .pointerInput(Unit) {
+                            detectTapGestures { } // поглощаем клики, ничего не делая
+                        }
+                )
             }
         }
     }
