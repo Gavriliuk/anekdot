@@ -39,6 +39,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -55,6 +58,10 @@ import okhttp3.MediaType.Companion.toMediaType
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import retrofit2.http.GET
+
+val ComfortaaFontFamily = FontFamily(
+    Font(R.font.comfortaa_regular, FontWeight.Normal)
+)
 
 // Пары цветов для градиента (Start Color, End Color)
 val gradientPresets = listOf(
@@ -185,6 +192,7 @@ fun JokeScreen(modifier: Modifier = Modifier) {
                 ) {
                     Text(
                         text = text, // Use "$text\n$text" for layout debug
+                        fontFamily = ComfortaaFontFamily,
                         style = MaterialTheme.typography.bodyLarge.copy(
                             fontSize = 20.sp,
                             lineHeight = 28.sp // Добавим межстрочный интервал для удобства чтения
