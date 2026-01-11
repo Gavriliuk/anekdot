@@ -1,6 +1,8 @@
 package fr.anekdot
 
+import android.content.Context
 import android.content.Intent
+import android.media.MediaPlayer
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -58,6 +60,16 @@ import okhttp3.MediaType.Companion.toMediaType
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import retrofit2.http.GET
+
+object SoundManager {
+    private var mediaPlayer: MediaPlayer? = null
+
+    fun playSound(context: Context, resId: Int) {
+        mediaPlayer?.release() // Освобождаем ресурсы предыдущего звука
+        mediaPlayer = MediaPlayer.create(context, resId)
+        mediaPlayer?.start()
+    }
+}
 
 val ComfortaaFontFamily = FontFamily(
     Font(R.font.comfortaa_regular, FontWeight.Normal)
@@ -213,7 +225,12 @@ fun JokeScreen(modifier: Modifier = Modifier) {
         ) {
             // Кнопка "Следующий"
             FloatingActionButton(
-                onClick = { if (!isLoading) viewModel.fetchNextJoke() },
+                onClick = {
+                    if (!isLoading) {
+                        SoundManager.playSound(context, R.raw.button)
+                        viewModel.fetchNextJoke()
+                    }
+                },
                 shape = CircleShape,
                 containerColor = Color.White,
                 contentColor = startColor,
@@ -230,6 +247,7 @@ fun JokeScreen(modifier: Modifier = Modifier) {
             FloatingActionButton(
                 onClick = {
                     if (!isLoading) {
+                        SoundManager.playSound(context, R.raw.bluster)
                         val shareText = "$text\n\nСмейся больше здесь: https://anekdot.fr/"
                         val sendIntent = Intent().apply {
                             action = Intent.ACTION_SEND
