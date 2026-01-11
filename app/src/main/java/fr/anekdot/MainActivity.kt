@@ -9,6 +9,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -78,11 +80,11 @@ val ComfortaaFontFamily = FontFamily(
 
 // Пары цветов для градиента (Start Color, End Color)
 val gradientPresets = listOf(
+    Color(0xFFCFD9DF) to Color(0xFFE2E2E2), // Светло-серый жемчуг
     Color(0xFFFF9A9E) to Color(0xFFFAD0C4), // Нежно-розовый
     Color(0xFFA18CD1) to Color(0xFFFBC2EB), // Сиреневый
     Color(0xFF84FAB0) to Color(0xFF8FD3F4), // Мятно-голубой
     Color(0xFFF6D365) to Color(0xFFFDA085), // Солнечно-оранжевый
-    Color(0xFFCFD9DF) to Color(0xFFE2E2E2), // Светло-серый жемчуг
     Color(0xFFA8E063) to Color(0xFF56AB2F)  // Сочное яблоко
 )
 @Serializable
@@ -96,7 +98,7 @@ data class JokeResponse(
 )
 
 interface AnekdotApi {
-    @GET("joke?a=")
+    @GET("?a=")
     suspend fun getRandomJoke() : JokeResponse
 }
 
@@ -214,6 +216,7 @@ fun JokeScreen(modifier: Modifier = Modifier) {
                         text = text, // Use "$text\n$text" for layout debug
                         fontFamily = ComfortaaFontFamily,
                         style = MaterialTheme.typography.bodyLarge.copy(
+                            color = Color.Black,
                             fontSize = 20.sp,
                             lineHeight = 28.sp // Добавим межстрочный интервал для удобства чтения
                         ),
@@ -224,56 +227,70 @@ fun JokeScreen(modifier: Modifier = Modifier) {
         }
 
         // Кнопки остаются внизу, они теперь главные акценты
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 48.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            // Кнопка "Следующий"
-            FloatingActionButton(
-                onClick = {
-                    if (!isLoading) {
-                        SoundManager.playSound(context, R.raw.button)
-                        viewModel.fetchNextJoke()
-                    }
-                },
-                shape = CircleShape,
-                containerColor = Color.White,
-                contentColor = startColor,
-                elevation = FloatingActionButtonDefaults.elevation(8.dp)
+        Box(modifier = Modifier.align(Alignment.BottomCenter)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 48.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                Icon(
-                    imageVector = Icons.Default.Refresh,
-                    contentDescription = "Следующий",
-                    modifier = Modifier.size(30.dp)
-                )
+                // Кнопка "Следующий"
+                FloatingActionButton(
+                    onClick = {
+                        if (!isLoading) {
+                            SoundManager.playSound(context, R.raw.button)
+                            viewModel.fetchNextJoke()
+                        }
+                    },
+                    shape = CircleShape,
+                    containerColor = Color.White,
+                    contentColor = startColor,
+                    elevation = FloatingActionButtonDefaults.elevation(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Следующий",
+                        modifier = Modifier.size(30.dp)
+                    )
+                }
+
+                // Кнопка "Поделиться"
+                FloatingActionButton(
+                    onClick = {
+                        if (!isLoading) {
+                            SoundManager.playSound(context, R.raw.bluster)
+                            val shareText = "$text\n\nЧитай тут: https://anekdot.fr"
+                            val sendIntent = Intent().apply {
+                                action = Intent.ACTION_SEND
+                                putExtra(Intent.EXTRA_TEXT, shareText)
+                                type = "text/plain"
+                            }
+                            context.startActivity(Intent.createChooser(sendIntent, null))
+                        }
+                    },
+                    shape = CircleShape,
+                    containerColor = Color.White,
+                    contentColor = endColor,
+                    elevation = FloatingActionButtonDefaults.elevation(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Share,
+                        contentDescription = "Поделиться",
+                        modifier = Modifier.size(30.dp)
+                    )
+                }
             }
 
-            // Кнопка "Поделиться"
-            FloatingActionButton(
-                onClick = {
-                    if (!isLoading) {
-                        SoundManager.playSound(context, R.raw.bluster)
-                        val shareText = "$text\n\nСмейся больше здесь: https://anekdot.fr/"
-                        val sendIntent = Intent().apply {
-                            action = Intent.ACTION_SEND
-                            putExtra(Intent.EXTRA_TEXT, shareText)
-                            type = "text/plain"
+            // Если идет загрузка, перекрываем кнопки невидимым кликабельным слоем
+            if (isLoading) {
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .pointerInput(Unit) {
+                            detectTapGestures { } // поглощаем клики, ничего не делая
                         }
-                        context.startActivity(Intent.createChooser(sendIntent, null))
-                    }
-                },
-                shape = CircleShape,
-                containerColor = Color.White,
-                contentColor = endColor,
-                elevation = FloatingActionButtonDefaults.elevation(8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Share,
-                    contentDescription = "Поделиться",
-                    modifier = Modifier.size(30.dp)
+
                 )
             }
         }
