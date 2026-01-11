@@ -34,6 +34,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -170,6 +171,13 @@ fun JokeScreen(modifier: Modifier = Modifier) {
 
     val (startColor, endColor) = gradientPresets[gIndex]
 
+    LaunchedEffect(text) {
+        if (text.length > 50 && (1..3).random() == 1) { // Если пришел анекдот и повезло (шанс 1 к 7)
+            kotlinx.coroutines.delay((2000..5000).random().toLong())
+            SoundManager.playSound(context, laughterResources.random())
+        }
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -271,6 +279,21 @@ fun JokeScreen(modifier: Modifier = Modifier) {
         }
     }
 }
+
+val laughterResources = listOf(
+    R.raw.carefree_cheerful_laughter_of_a_young_man, R.raw.chilling_laughter_of_baba_yaga,
+    R.raw.creepy_laugh_single_long_male, R.raw.creepy_laugh_single_long_male_jellied,
+    R.raw.creepy_laugh_single_male_close, R.raw.grandpa_laughs, R.raw.infectious_laughter,
+    R.raw.jellied_male_laughter, R.raw.lady_laughs, R.raw.lady_laughs_cheeky,
+    R.raw.laughter_1, R.raw.laughter_2, R.raw.laughter_5, R.raw.laughter_13,
+    R.raw.laughter_22, R.raw.laughter_24, R.raw.laughter_26, R.raw.laughter_36,
+    R.raw.laughter_37, R.raw.laughter_38, R.raw.laughter_43, R.raw.laughter_45,
+    R.raw.laughter_sinister_long_low, R.raw.low_verbal_laughter, R.raw.male_short_laugh,
+    R.raw.malevolent_laughter_of_a_man, R.raw.the_man_is_very_funny,
+    R.raw.the_sound_of_male_laughter_man_laughing, R.raw.the_teasing_laughter_of_the_seductress,
+    R.raw.the_woman_laughs_women39s_laughter, R.raw.uncontrollable_hysterical_laughter_of_a_man,
+    R.raw.vulgar_female_laughter, R.raw.witch_single_long_rhythmic, R.raw.woman_laughing
+)
 
 @Preview(showBackground = true)
 @Composable
