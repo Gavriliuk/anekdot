@@ -32,12 +32,15 @@ android {
             )
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -61,6 +64,7 @@ dependencies {
     implementation(libs.converter.kotlinx.serialization)
     implementation(libs.converter.kotlinx.serialization.json)
     implementation(libs.androidx.compose.material.icons.extended)
+    implementation(libs.androidx.work.runtime.ktx)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

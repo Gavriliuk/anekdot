@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Card
@@ -51,8 +52,14 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.work.Constraints
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import fr.anekdot.ui.theme.AnekdotTheme
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -63,6 +70,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import retrofit2.http.GET
+import retrofit2.http.Query
 
 object SoundManager {
     private var mediaPlayer: MediaPlayer? = null
@@ -99,7 +107,25 @@ data class JokeResponse(
 
 interface AnekdotApi {
     @GET("?a=")
-    suspend fun getRandomJoke() : JokeResponse
+    suspend fun getRandomJoke(
+        @Query("maxlen") maxLength: Int? = null
+    ) : JokeResponse
+}
+
+object RetrofitInstance {
+    private val _jsonConfig = Json {
+        ignoreUnknownKeys = true
+        coerceInputValues = true
+    }
+    private val _contentType = "application/json".toMediaType()
+
+    val api: AnekdotApi by lazy {
+        Retrofit.Builder()
+            .baseUrl("https://anekdot.fr/")
+            .addConverterFactory(_jsonConfig.asConverterFactory(_contentType))
+            .build()
+            .create(AnekdotApi::class.java)
+    }
 }
 
 class JokeViewModel : ViewModel() {
@@ -109,21 +135,8 @@ class JokeViewModel : ViewModel() {
     private val _isLoading = MutableStateFlow(false)
     val isLoading = _isLoading.asStateFlow()
 
-    // Состояние текущего градиента (храним индекс пары)
     private val _gradientIndex = MutableStateFlow(0)
     val gradientIndex = _gradientIndex.asStateFlow()
-
-    private val _jsonConfig = Json {
-        ignoreUnknownKeys = true // Игнорировать поля, которых нет в нашем классе
-        coerceInputValues = true // На всякий случай, чтобы не падать на null
-    }
-    private val _contentType = "application/json".toMediaType()
-    private val _jsonFactory = _jsonConfig.asConverterFactory(_contentType)
-    private val _api = Retrofit.Builder()
-        .baseUrl("https://anekdot.fr/")
-        .addConverterFactory(_jsonFactory)
-        .build()
-        .create(AnekdotApi::class.java)
 
     fun fetchNextJoke() {
         if (_isLoading.value) return
@@ -132,11 +145,9 @@ class JokeViewModel : ViewModel() {
             try {
                 _isLoading.value = true
                 //Log.d("JokeDebug", "Начинаем запрос...")
-                val response = _api.getRandomJoke()
+                val response = RetrofitInstance.api.getRandomJoke()
                 //Log.d("JokeDebug", "Успех: ${response.p.text}")
-                _jokeText.value = response.p.text
-                // Выбираем новый случайный индекс градиента
-                _gradientIndex.value = (gradientPresets.indices).random()
+                displayJoke(response.p.text)
             } catch (e: Exception) {
                 Log.e("JokeDebug", "Ошибка запроса", e)
                 _jokeText.value = "Ошибка: ${e.message}"
@@ -145,27 +156,73 @@ class JokeViewModel : ViewModel() {
             }
         }
     }
+
+    fun displayJoke(text: String) {
+        _jokeText.value = text
+        // Выбираем новый случайный индекс градиента
+        _gradientIndex.value = (gradientPresets.indices).random()
+    }
 }
 
 class MainActivity : ComponentActivity() {
+    private lateinit var jokeViewModel: JokeViewModel
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        jokeViewModel = ViewModelProvider(this)[JokeViewModel::class.java]
+        jokeViewModel.fetchNextJoke()
+        checkIntentForJoke(intent)
+        scheduleDailyJoke()
+        requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 101)
         setContent {
             AnekdotTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     JokeScreen(
-                        modifier = Modifier.padding(innerPadding)
+                        modifier = Modifier.padding(innerPadding),
+                        viewModel = jokeViewModel
                     )
                 }
             }
         }
     }
+
+    private fun scheduleDailyJoke() {
+        val request = androidx.work.PeriodicWorkRequestBuilder<NotificationWorker>(
+            24, java.util.concurrent.TimeUnit.HOURS
+        )
+            .setConstraints(
+                // Только если есть сеть
+                Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+            )
+            .build()
+
+        androidx.work.WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            // Не пересоздавать, если уже запущено
+            "daily_joke", ExistingPeriodicWorkPolicy.KEEP, request
+        )
+    }
+
+    // Этот метод сработает, если приложение уже открыто и вы нажали на уведомление
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent) // Важно: обновляем intent активности, иначе придет старый
+        checkIntentForJoke(intent)
+    }
+
+    private fun checkIntentForJoke(intent: Intent?) {
+        val joke = intent?.getStringExtra("joke_from_notification")
+        if (joke != null) {
+            jokeViewModel.displayJoke(joke)
+        }
+    }
 }
 
 @Composable
-fun JokeScreen(modifier: Modifier = Modifier) {
-    val viewModel: JokeViewModel = viewModel()
+fun JokeScreen(
+    modifier: Modifier = Modifier,
+    viewModel: JokeViewModel
+) {
     val text by viewModel.jokeText.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val gIndex by viewModel.gradientIndex.collectAsState()
@@ -255,6 +312,25 @@ fun JokeScreen(modifier: Modifier = Modifier) {
                     )
                 }
 
+                if (BuildConfig.DEBUG) {
+                    // Вставьте это между двумя FloatingActionButton в JokeScreen
+                    FloatingActionButton(
+                        onClick = {
+                            val test = OneTimeWorkRequestBuilder<NotificationWorker>().build()
+                            WorkManager.getInstance(context).enqueue(test)
+                        },
+                        shape = CircleShape,
+                        containerColor = Color.White,
+                        contentColor = endColor,
+                        elevation = FloatingActionButtonDefaults.elevation(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = androidx.compose.material.icons.Icons.Default.Notifications,
+                            contentDescription = "Тест уведомления"
+                        )
+                    }
+                }
+
                 // Кнопка "Поделиться"
                 FloatingActionButton(
                     onClick = {
@@ -316,6 +392,6 @@ val laughterResources = listOf(
 @Composable
 fun JokeScreenPreview() {
     AnekdotTheme {
-        JokeScreen()
+        JokeScreen(viewModel = viewModel())
     }
 }
