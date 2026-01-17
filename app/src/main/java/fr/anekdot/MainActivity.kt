@@ -3,6 +3,7 @@ package fr.anekdot
 import android.content.Context
 import android.content.Intent
 import android.media.MediaPlayer
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.HapticFeedbackConstants
@@ -63,6 +64,7 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
+import com.google.android.gms.security.ProviderInstaller
 import fr.anekdot.ui.theme.AnekdotTheme
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -74,7 +76,6 @@ import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import retrofit2.http.GET
 import retrofit2.http.Query
-
 
 object SoundManager {
     private var mediaPlayer: MediaPlayer? = null
@@ -174,6 +175,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        try {
+            ProviderInstaller.installIfNeeded(this)
+        } catch (e: Exception) {
+            Log.e("JokeDebug", "Не удалось обновить поставщика безопасности", e)
+        }
         jokeViewModel = ViewModelProvider(this)[JokeViewModel::class.java]
         // Вызываем загрузку только при ПЕРВОМ запуске приложения
         // Если savedInstanceState != null, значит, это поворот экрана,
@@ -183,7 +189,9 @@ class MainActivity : ComponentActivity() {
         }
         checkIntentForJoke(intent)
         scheduleDailyJoke()
-        requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 101)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 101)
+        }
         setContent {
             AnekdotTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
@@ -333,7 +341,7 @@ fun JokeScreen(
                     )
                 }
 
-                /*if (BuildConfig.DEBUG) {
+                if (BuildConfig.DEBUG) {
                     // Вставьте это между двумя FloatingActionButton в JokeScreen
                     FloatingActionButton(
                         onClick = {
@@ -350,7 +358,7 @@ fun JokeScreen(
                             contentDescription = "Тест уведомления"
                         )
                     }
-                }*/
+                }
 
                 // Кнопка "Поделиться"
                 FloatingActionButton(
