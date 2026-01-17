@@ -48,6 +48,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -248,6 +249,9 @@ fun JokeScreen(
     val view = androidx.compose.ui.platform.LocalView.current
     val (startColor, endColor) = gradientPresets[gIndex]
 
+    val smallestWidth = LocalConfiguration.current.smallestScreenWidthDp // Это ВСЕГДА меньшая сторона
+    val dynamicFontSize = smallestWidth * 0.05f
+
     LaunchedEffect(text) {
         if (text.length > 50 && (1..3).random() == 1) { // Если пришел анекдот и повезло (шанс 1 к 7)
             kotlinx.coroutines.delay((2000..5000).random().toLong())
@@ -264,18 +268,18 @@ fun JokeScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 20.dp)
+                .padding(horizontal = dynamicFontSize.dp)
                 .verticalScroll(rememberScrollState())
-                .padding(top = 20.dp, bottom = 120.dp),
+                .padding(top = dynamicFontSize.dp, bottom = (dynamicFontSize * 6).dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             if (isLoading) {
                 // Большая белая крутилка на цветном фоне
                 CircularProgressIndicator(
-                    modifier = Modifier.size(256.dp),
+                    modifier = Modifier.size((dynamicFontSize * 12).dp),
                     color = Color.White,
-                    strokeWidth = 16.dp
+                    strokeWidth = (dynamicFontSize * .8).dp
                 )
             } else {
                 AnimatedContent(
@@ -289,22 +293,23 @@ fun JokeScreen(
                     label = "JokeAnimation"
                 ) { (targetText, _) ->
                     Card(
-                        shape = RoundedCornerShape(32.dp),
+                        shape = RoundedCornerShape((dynamicFontSize * 1.6).dp),
                         colors = CardDefaults.cardColors(
                             // Эффект матового стекла (90% прозрачности)
                             containerColor = Color.White.copy(alpha = 0.92f)
                         ),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
+                        elevation = CardDefaults.cardElevation(defaultElevation = (dynamicFontSize * .6).dp)
                     ) {
                         Text(
                             text = targetText,
                             fontFamily = ComfortaaFontFamily,
                             style = MaterialTheme.typography.bodyLarge.copy(
                                 color = Color.Black,
-                                fontSize = 20.sp,
-                                lineHeight = 28.sp // Добавим межстрочный интервал для удобства чтения
+                                fontSize = dynamicFontSize.sp,
+                                // Добавим межстрочный интервал для удобства чтения
+                                lineHeight = (dynamicFontSize * 1.4).sp
                             ),
-                            modifier = Modifier.padding(28.dp)
+                            modifier = Modifier.padding((dynamicFontSize * 1.4).dp)
                         )
                     }
                 }
@@ -317,7 +322,7 @@ fun JokeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = 48.dp),
+                    .padding(bottom = (dynamicFontSize * 2.4).dp),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 // Кнопка "Следующий"
@@ -332,16 +337,17 @@ fun JokeScreen(
                     shape = CircleShape,
                     containerColor = Color.White,
                     contentColor = startColor,
-                    elevation = FloatingActionButtonDefaults.elevation(8.dp)
+                    elevation = FloatingActionButtonDefaults.elevation((dynamicFontSize * .4).dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Refresh,
                         contentDescription = "Следующий",
-                        modifier = Modifier.size(30.dp)
+                        modifier = Modifier.size((dynamicFontSize * 1.5).dp)
                     )
                 }
 
-                if (BuildConfig.DEBUG) {
+                // Условие (smallestWidth < 100) не выполняется никогда
+                if (BuildConfig.DEBUG && smallestWidth < 100) {
                     // Вставьте это между двумя FloatingActionButton в JokeScreen
                     FloatingActionButton(
                         onClick = {
@@ -351,11 +357,12 @@ fun JokeScreen(
                         shape = CircleShape,
                         containerColor = Color.White,
                         contentColor = endColor,
-                        elevation = FloatingActionButtonDefaults.elevation(8.dp)
+                        elevation = FloatingActionButtonDefaults.elevation((dynamicFontSize * .4).dp)
                     ) {
                         Icon(
                             imageVector = androidx.compose.material.icons.Icons.Default.Notifications,
-                            contentDescription = "Тест уведомления"
+                            contentDescription = "Тест уведомления",
+                            modifier = Modifier.size((dynamicFontSize * 1.5).dp)
                         )
                     }
                 }
@@ -377,12 +384,12 @@ fun JokeScreen(
                     shape = CircleShape,
                     containerColor = Color.White,
                     contentColor = endColor,
-                    elevation = FloatingActionButtonDefaults.elevation(8.dp)
+                    elevation = FloatingActionButtonDefaults.elevation((dynamicFontSize * .4).dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Share,
                         contentDescription = "Поделиться",
-                        modifier = Modifier.size(30.dp)
+                        modifier = Modifier.size((dynamicFontSize * 1.5).dp)
                     )
                 }
             }
