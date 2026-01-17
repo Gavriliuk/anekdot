@@ -13,6 +13,7 @@ converterKotlinxSerialization = "3.0.0"
 converterKotlinxSerializationJson = "1.9.0"
 materialIconsExtended = "1.7.8"
 workRuntimeKtx = "2.11.0"
+animation = "1.10.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -35,6 +36,7 @@ converter-kotlinx-serialization = { module = "com.squareup.retrofit2:converter-k
 converter-kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "converterKotlinxSerializationJson" }
 androidx-compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended", version.ref = "materialIconsExtended" }
 androidx-work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "workRuntimeKtx" }
+androidx-compose-animation = { group = "androidx.compose.animation", name = "animation", version.ref = "animation" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

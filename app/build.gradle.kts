@@ -65,6 +65,7 @@ dependencies {
     implementation(libs.converter.kotlinx.serialization.json)
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.compose.animation)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

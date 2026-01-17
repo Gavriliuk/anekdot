@@ -5,9 +5,12 @@ import android.content.Intent
 import android.media.MediaPlayer
 import android.os.Bundle
 import android.util.Log
+import android.view.HapticFeedbackConstants
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -71,6 +74,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import retrofit2.http.GET
 import retrofit2.http.Query
+
 
 object SoundManager {
     private var mediaPlayer: MediaPlayer? = null
@@ -171,7 +175,12 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         jokeViewModel = ViewModelProvider(this)[JokeViewModel::class.java]
-        jokeViewModel.fetchNextJoke()
+        // Вызываем загрузку только при ПЕРВОМ запуске приложения
+        // Если savedInstanceState != null, значит, это поворот экрана,
+        // и ViewModel сама сохранит текущий текст.
+        if (savedInstanceState == null) {
+            jokeViewModel.fetchNextJoke()
+        }
         checkIntentForJoke(intent)
         scheduleDailyJoke()
         requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 101)
@@ -228,6 +237,7 @@ fun JokeScreen(
     val gIndex by viewModel.gradientIndex.collectAsState()
     val context = LocalContext.current
 
+    val view = androidx.compose.ui.platform.LocalView.current
     val (startColor, endColor) = gradientPresets[gIndex]
 
     LaunchedEffect(text) {
@@ -255,30 +265,40 @@ fun JokeScreen(
             if (isLoading) {
                 // Большая белая крутилка на цветном фоне
                 CircularProgressIndicator(
-                    modifier = Modifier.size(64.dp),
+                    modifier = Modifier.size(256.dp),
                     color = Color.White,
-                    strokeWidth = 6.dp
+                    strokeWidth = 16.dp
                 )
             } else {
-                Card(
-                    //modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(32.dp),
-                    colors = CardDefaults.cardColors(
-                        // Эффект матового стекла (90% прозрачности)
-                        containerColor = Color.White.copy(alpha = 0.92f)
-                    ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
-                ) {
-                    Text(
-                        text = text, // Use "$text\n$text" for layout debug
-                        fontFamily = ComfortaaFontFamily,
-                        style = MaterialTheme.typography.bodyLarge.copy(
-                            color = Color.Black,
-                            fontSize = 20.sp,
-                            lineHeight = 28.sp // Добавим межстрочный интервал для удобства чтения
+                AnimatedContent(
+                    targetState = text to gIndex,
+                    transitionSpec = {
+                        (fadeIn(animationSpec = tween(600)) +
+                                slideInVertically(animationSpec = tween(600), initialOffsetY = { it / 2 }))
+                            .togetherWith(fadeOut(animationSpec = tween(300)) +
+                                    slideOutVertically(animationSpec = tween(300), targetOffsetY = { -it / 2 }))
+                    },
+                    label = "JokeAnimation"
+                ) { (targetText, _) ->
+                    Card(
+                        shape = RoundedCornerShape(32.dp),
+                        colors = CardDefaults.cardColors(
+                            // Эффект матового стекла (90% прозрачности)
+                            containerColor = Color.White.copy(alpha = 0.92f)
                         ),
-                        modifier = Modifier.padding(28.dp)
-                    )
+                        elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
+                    ) {
+                        Text(
+                            text = targetText,
+                            fontFamily = ComfortaaFontFamily,
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                color = Color.Black,
+                                fontSize = 20.sp,
+                                lineHeight = 28.sp // Добавим межстрочный интервал для удобства чтения
+                            ),
+                            modifier = Modifier.padding(28.dp)
+                        )
+                    }
                 }
             }
         }
@@ -296,6 +316,7 @@ fun JokeScreen(
                 FloatingActionButton(
                     onClick = {
                         if (!isLoading) {
+                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                             SoundManager.playSound(context, R.raw.button)
                             viewModel.fetchNextJoke()
                         }
@@ -312,7 +333,7 @@ fun JokeScreen(
                     )
                 }
 
-                if (BuildConfig.DEBUG) {
+                /*if (BuildConfig.DEBUG) {
                     // Вставьте это между двумя FloatingActionButton в JokeScreen
                     FloatingActionButton(
                         onClick = {
@@ -329,7 +350,7 @@ fun JokeScreen(
                             contentDescription = "Тест уведомления"
                         )
                     }
-                }
+                }*/
 
                 // Кнопка "Поделиться"
                 FloatingActionButton(
@@ -373,6 +394,7 @@ fun JokeScreen(
     }
 }
 
+// Source: https://zvukogram.com/
 val laughterResources = listOf(
     R.raw.carefree_cheerful_laughter_of_a_young_man, R.raw.chilling_laughter_of_baba_yaga,
     R.raw.creepy_laugh_single_long_male, R.raw.creepy_laugh_single_long_male_jellied,
