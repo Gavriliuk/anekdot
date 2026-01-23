@@ -1,5 +1,8 @@
 package fr.anekdot
 
+import SettingsManager
+import SettingsScreen
+import SettingsViewModel
 import android.content.Context
 import android.content.Intent
 import android.media.MediaPlayer
@@ -29,6 +32,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -43,6 +47,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -207,6 +212,10 @@ class JokeViewModel : ViewModel() {
 
 class MainActivity : ComponentActivity() {
     private lateinit var jokeViewModel: JokeViewModel
+    // Для SettingsViewModel понадобится SettingsManager
+    private lateinit var settingsManager: SettingsManager
+    private lateinit var settingsViewModel: SettingsViewModel
+    //private var currentScreen by remember { mutableStateOf("main") }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -228,13 +237,38 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 101)
         }
+        settingsManager = SettingsManager(this)
+        settingsViewModel = SettingsViewModel(settingsManager)
         setContent {
+            // Получаем коэффициент размера из настроек для адаптивности
+            val smallestWidth = LocalConfiguration.current.smallestScreenWidthDp
+            val baseFontSize = smallestWidth * 0.05f
             AnekdotTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    JokeScreen(
-                        modifier = Modifier.padding(innerPadding),
-                        viewModel = jokeViewModel
-                    )
+                    // Выбираем, какой экран показать
+                    when (App.currentScreen) {
+                        "main" -> {
+                            JokeScreen(
+                                modifier = Modifier.padding(innerPadding),
+                                viewModel = jokeViewModel,
+                                settingsViewModel = settingsViewModel,
+                                // callback для перехода в настройки
+                                onOpenSettings = { App.currentScreen = "settings" }
+                            )
+                        }
+                        "settings" -> {
+                            SettingsScreen(
+                                viewModel = settingsViewModel,
+                                dynamicFontSize = baseFontSize,
+                                onBack = { App.currentScreen = "main" },
+                                onSendNotification = {
+                                    // Тот самый код из закомментированной кнопки
+                                    val request = OneTimeWorkRequestBuilder<NotificationWorker>().build()
+                                    WorkManager.getInstance(this@MainActivity).enqueue(request)
+                                }
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -261,6 +295,10 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent) // Важно: обновляем intent активности, иначе придет старый
         checkIntentForJoke(intent)
+        // Если пришли из уведомления — принудительно на главный экран
+        if (intent.hasExtra("joke_from_notification")) {
+            App.currentScreen = "main"
+        }
     }
 
     private fun checkIntentForJoke(intent: Intent?) {
@@ -274,7 +312,9 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun JokeScreen(
     modifier: Modifier = Modifier,
-    viewModel: JokeViewModel
+    viewModel: JokeViewModel,
+    settingsViewModel: SettingsViewModel,
+    onOpenSettings: () -> Unit
 ) {
     val text by viewModel.jokeText.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -284,13 +324,15 @@ fun JokeScreen(
     val view = androidx.compose.ui.platform.LocalView.current
     val (startColor, endColor) = gradientPresets[gIndex]
 
+    // Читаем значение (от 1 до 5)
+    val relativeFontSize by settingsViewModel.relativeFontSize.collectAsState()
     val smallestWidth = LocalConfiguration.current.smallestScreenWidthDp // Это ВСЕГДА меньшая сторона
-    val dynamicFontSize = smallestWidth * 0.05f
+    val dynamicFontSize = smallestWidth * 0.01f * (2 + relativeFontSize)
 
     LaunchedEffect(text) {
-        if (text.length > 50 && (1..3).random() == 1) { // Если пришел анекдот и повезло (шанс 1 к 7)
+        if (settingsViewModel.isLaughSoundEnabled.value && text.length > 50 && (1..3).random() == 1) { // Если пришел анекдот и повезло (шанс 1 к 7)
             kotlinx.coroutines.delay((2000..5000).random().toLong())
-            SoundManager.playSound(context, laughterResources.random())
+            if (settingsViewModel.isLaughSoundEnabled.value) SoundManager.playSound(context, laughterResources.random())
         }
     }
 
@@ -357,57 +399,17 @@ fun JokeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = (dynamicFontSize * 2.4).dp),
-                horizontalArrangement = Arrangement.SpaceEvenly
+                    .padding(bottom = (dynamicFontSize * 1.2).dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // Кнопка "Следующий"
-                FloatingActionButton(
-                    onClick = {
-                        if (!isLoading) {
-                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                            SoundManager.playSound(context, R.raw.button)
-                            viewModel.fetchNextJoke()
-                        }
-                    },
-                    shape = CircleShape,
-                    containerColor = Color.White,
-                    contentColor = startColor,
-                    elevation = FloatingActionButtonDefaults.elevation((dynamicFontSize * .4).dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = "Следующий",
-                        modifier = Modifier.size((dynamicFontSize * 1.5).dp)
-                    )
-                }
-
-                // Условие (smallestWidth < 100) не выполняется никогда
-                if (BuildConfig.DEBUG && smallestWidth < 100) {
-                    // Вставьте это между двумя FloatingActionButton в JokeScreen
-                    FloatingActionButton(
-                        onClick = {
-                            val test = OneTimeWorkRequestBuilder<NotificationWorker>().build()
-                            WorkManager.getInstance(context).enqueue(test)
-                        },
-                        shape = CircleShape,
-                        containerColor = Color.White,
-                        contentColor = endColor,
-                        elevation = FloatingActionButtonDefaults.elevation((dynamicFontSize * .4).dp)
-                    ) {
-                        Icon(
-                            imageVector = androidx.compose.material.icons.Icons.Default.Notifications,
-                            contentDescription = "Тест уведомления",
-                            modifier = Modifier.size((dynamicFontSize * 1.5).dp)
-                        )
-                    }
-                }
-
                 // Кнопка "Поделиться"
                 FloatingActionButton(
                     onClick = {
                         if (!isLoading) {
-                            SoundManager.playSound(context, R.raw.bluster)
-                            val shareText = "$text\n\nЧитай тут: https://anekdot.fr"
+                            if (settingsViewModel.isClickSoundEnabled.value) SoundManager.playSound(context, R.raw.bluster)
+                            val shareText = "$text\n\nВы хочете шуток? Их есть у меня:\n"+
+                                    "https://play.google.com/store/apps/details?id=fr.anekdot"
                             val sendIntent = Intent().apply {
                                 action = Intent.ACTION_SEND
                                 putExtra(Intent.EXTRA_TEXT, shareText)
@@ -418,13 +420,52 @@ fun JokeScreen(
                     },
                     shape = CircleShape,
                     containerColor = Color.White,
-                    contentColor = endColor,
+                    contentColor = startColor,
                     elevation = FloatingActionButtonDefaults.elevation((dynamicFontSize * .4).dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Share,
                         contentDescription = "Поделиться",
-                        modifier = Modifier.size((dynamicFontSize * 1.5).dp)
+                        modifier = Modifier.size((dynamicFontSize * 2).dp)
+                    )
+                }
+
+                // Кнопка "Следующий"
+                FloatingActionButton(
+                    onClick = {
+                        if (!isLoading) {
+                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                            if (settingsViewModel.isClickSoundEnabled.value) SoundManager.playSound(context, R.raw.button)
+                            viewModel.fetchNextJoke()
+                        }
+                    },
+                    shape = CircleShape,
+                    containerColor = Color.White,
+                    contentColor = startColor,
+                    elevation = FloatingActionButtonDefaults.elevation((dynamicFontSize * .8).dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Следующий",
+                        modifier = Modifier.size((dynamicFontSize * 4).dp)
+                    )
+                }
+
+                // Кнопка "Настройки"
+                FloatingActionButton(
+                    onClick = {
+                        if (settingsViewModel.isClickSoundEnabled.value) SoundManager.playSound(context, R.raw.button)
+                        onOpenSettings()
+                    },
+                    shape = CircleShape,
+                    containerColor = Color.White,
+                    contentColor = startColor,
+                    elevation = FloatingActionButtonDefaults.elevation((dynamicFontSize * .4).dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Настройки",
+                        modifier = Modifier.size((dynamicFontSize * 2).dp)
                     )
                 }
             }
@@ -463,7 +504,16 @@ val laughterResources = listOf(
 @Preview(showBackground = true)
 @Composable
 fun JokeScreenPreview() {
+    // 1. Получаем контекст для создания менеджера
+    val context = LocalContext.current
+    // 2. Создаем временные зависимости через remember
+    val settingsManager = remember { SettingsManager(context) }
+    val settingsViewModel = remember { SettingsViewModel(settingsManager) }
     AnekdotTheme {
-        JokeScreen(viewModel = viewModel())
+        JokeScreen(
+            viewModel = viewModel(),
+            settingsViewModel = settingsViewModel,
+            onOpenSettings = {}
+        )
     }
 }
