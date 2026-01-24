@@ -35,17 +35,15 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import fr.anekdot.ui.theme.AnekdotTheme
+import fr.anekdot.App
 import fr.anekdot.Util
 import fr.anekdot.toSp
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -55,7 +53,10 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-class SettingsViewModel(private val settingsManager: SettingsManager) : ViewModel() {
+class SettingsViewModel : ViewModel() {
+    // ViewModel сама знает, где лежат настройки
+    private val settingsManager = App.settingsManager
+
     private val _gradientColors = MutableStateFlow(Util.GetFirstColorPair())
     val gradientColors = _gradientColors.asStateFlow()
 
@@ -374,24 +375,5 @@ fun SettingsScreen(
         SettingsScreenColored(viewModel, baseFontSizeDp, onSendNotification, onBack)
     } else {
         SettingsScreenClassic(viewModel, baseFontSizeDp, onSendNotification, onBack)
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun SettingsScreenPreview() {
-    // 1. Создаем временный менеджер настроек (используем LocalContext)
-    val context = androidx.compose.ui.platform.LocalContext.current
-    // 2. Создаем вью-модель специально для превью
-    // Используем remember, чтобы модель не пересоздавалась постоянно
-    val viewModel = remember { SettingsViewModel(SettingsManager(context)) }
-
-    AnekdotTheme {
-        SettingsScreen(
-            viewModel = viewModel,
-            baseFontSizeDp = 20f,   // Просто число для примера, как на планшете
-            onSendNotification = {}, // Пустая заглушка
-            onBack = {}              // Пустая заглушка
-        )
     }
 }

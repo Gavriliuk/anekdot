@@ -1,5 +1,6 @@
 package fr.anekdot
 
+import SettingsManager
 import android.app.Application
 import android.content.Context
 import androidx.compose.runtime.getValue
@@ -11,6 +12,8 @@ class App : Application() {
         private lateinit var instance: App
         // Универсальный способ получить контекст из любой точки приложения
         fun getContext(): Context = instance.applicationContext
+
+        val settingsManager by lazy { SettingsManager() }
 
         // Глобальная навигация
         var currentScreen by mutableStateOf("main")

@@ -1,6 +1,5 @@
 package fr.anekdot
 
-import SettingsManager
 import SettingsScreen
 import SettingsViewModel
 import android.content.Intent
@@ -16,8 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
@@ -27,16 +24,8 @@ import com.google.android.gms.security.ProviderInstaller
 import fr.anekdot.ui.theme.AnekdotTheme
 
 class MainActivity : ComponentActivity() {
-    private val settingsManager by lazy { SettingsManager(applicationContext) }
-    private val settingsViewModel: SettingsViewModel by viewModels {
-        object : ViewModelProvider.Factory {
-            @Suppress("UNCHECKED_CAST")
-            override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return SettingsViewModel(settingsManager) as T
-            }
-        }
-    }
-    private val jokeViewModel: MainViewModel by viewModels()
+    private val settingsViewModel: SettingsViewModel by viewModels()
+    private val mainViewModel: MainViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,13 +33,13 @@ class MainActivity : ComponentActivity() {
         try {
             ProviderInstaller.installIfNeeded(this)
         } catch (e: Exception) {
-            Log.e("JokeDebug", "Не удалось обновить поставщика безопасности", e)
+            Log.e("Anekdot", "Не удалось обновить поставщика безопасности", e)
         }
         // Вызываем загрузку только при ПЕРВОМ запуске приложения
         // Если savedInstanceState != null, значит, это поворот экрана,
         // и ViewModel сама сохранит текущий текст.
         if (savedInstanceState == null) {
-            jokeViewModel.fetchNextJoke()
+            mainViewModel.fetchNextJoke()
         }
         checkIntentForJoke(intent)
         scheduleDailyJoke()
@@ -68,7 +57,7 @@ class MainActivity : ComponentActivity() {
                         "main" -> {
                             MainScreen(
                                 modifier = Modifier.padding(innerPadding),
-                                viewModel = jokeViewModel,
+                                viewModel = mainViewModel,
                                 settingsViewModel = settingsViewModel,
                                 // callback для перехода в настройки
                                 onOpenSettings = {
@@ -123,7 +112,7 @@ class MainActivity : ComponentActivity() {
     private fun checkIntentForJoke(intent: Intent?) {
         val joke = intent?.getStringExtra("joke_from_notification")
         if (joke != null) {
-            jokeViewModel.displayJoke(joke)
+            mainViewModel.displayJoke(joke)
         }
     }
 }
