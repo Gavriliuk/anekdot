@@ -16,9 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.text.font.Font
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.work.Constraints
@@ -28,10 +25,6 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.google.android.gms.security.ProviderInstaller
 import fr.anekdot.ui.theme.AnekdotTheme
-
-val ComfortaaFontFamily = FontFamily(
-    Font(R.font.comfortaa_regular, FontWeight.Normal)
-)
 
 class MainActivity : ComponentActivity() {
     private val settingsManager by lazy { SettingsManager(applicationContext) }
