@@ -13,6 +13,7 @@ import android.view.HapticFeedbackConstants
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -30,7 +31,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
@@ -60,7 +60,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -103,15 +102,6 @@ val ComfortaaFontFamily = FontFamily(
     Font(R.font.comfortaa_regular, FontWeight.Normal)
 )
 
-// Пары цветов для градиента (Start Color, End Color)
-val gradientPresets = listOf(
-    Color(0xFFCFD9DF) to Color(0xFFE2E2E2), // Светло-серый жемчуг
-    Color(0xFFFF9A9E) to Color(0xFFFAD0C4), // Нежно-розовый
-    Color(0xFFA18CD1) to Color(0xFFFBC2EB), // Сиреневый
-    Color(0xFF84FAB0) to Color(0xFF8FD3F4), // Мятно-голубой
-    Color(0xFFF6D365) to Color(0xFFFDA085), // Солнечно-оранжевый
-    Color(0xFFA8E063) to Color(0xFF56AB2F)  // Сочное яблоко
-)
 @Serializable
 data class JokeContent(
     val text: String
@@ -181,8 +171,8 @@ class JokeViewModel : ViewModel() {
     private val _isLoading = MutableStateFlow(false)
     val isLoading = _isLoading.asStateFlow()
 
-    private val _gradientIndex = MutableStateFlow(0)
-    val gradientIndex = _gradientIndex.asStateFlow()
+    private val _gradientColors = MutableStateFlow(Util.GetFirstColorPair())
+    val gradientColors = _gradientColors.asStateFlow()
 
     fun fetchNextJoke() {
         if (_isLoading.value) return
@@ -206,16 +196,21 @@ class JokeViewModel : ViewModel() {
     fun displayJoke(text: String) {
         _jokeText.value = text
         // Выбираем новый случайный индекс градиента
-        _gradientIndex.value = (gradientPresets.indices).random()
+        _gradientColors.value = Util.GetRandomColorPair();
     }
 }
 
 class MainActivity : ComponentActivity() {
-    private lateinit var jokeViewModel: JokeViewModel
-    // Для SettingsViewModel понадобится SettingsManager
-    private lateinit var settingsManager: SettingsManager
-    private lateinit var settingsViewModel: SettingsViewModel
-    //private var currentScreen by remember { mutableStateOf("main") }
+    private val settingsManager by lazy { SettingsManager(applicationContext) }
+    private val settingsViewModel: SettingsViewModel by viewModels {
+        object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                return SettingsViewModel(settingsManager) as T
+            }
+        }
+    }
+    private val jokeViewModel: JokeViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -225,7 +220,6 @@ class MainActivity : ComponentActivity() {
         } catch (e: Exception) {
             Log.e("JokeDebug", "Не удалось обновить поставщика безопасности", e)
         }
-        jokeViewModel = ViewModelProvider(this)[JokeViewModel::class.java]
         // Вызываем загрузку только при ПЕРВОМ запуске приложения
         // Если savedInstanceState != null, значит, это поворот экрана,
         // и ViewModel сама сохранит текущий текст.
@@ -237,12 +231,10 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 101)
         }
-        settingsManager = SettingsManager(this)
-        settingsViewModel = SettingsViewModel(settingsManager)
         setContent {
             // Получаем коэффициент размера из настроек для адаптивности
-            val smallestWidth = LocalConfiguration.current.smallestScreenWidthDp
-            val baseFontSize = smallestWidth * 0.05f
+            val smallestScreenWidthDp = LocalConfiguration.current.smallestScreenWidthDp
+            val baseFontSizeDp = smallestScreenWidthDp * .05f
             AnekdotTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     // Выбираем, какой экран показать
@@ -253,19 +245,20 @@ class MainActivity : ComponentActivity() {
                                 viewModel = jokeViewModel,
                                 settingsViewModel = settingsViewModel,
                                 // callback для перехода в настройки
-                                onOpenSettings = { App.currentScreen = "settings" }
+                                onOpenSettings = {
+                                    App.currentScreen = "settings"
+                                }
                             )
                         }
                         "settings" -> {
                             SettingsScreen(
-                                viewModel = settingsViewModel,
-                                dynamicFontSize = baseFontSize,
-                                onBack = { App.currentScreen = "main" },
-                                onSendNotification = {
-                                    // Тот самый код из закомментированной кнопки
+                                settingsViewModel,
+                                baseFontSizeDp,
+                                {
                                     val request = OneTimeWorkRequestBuilder<NotificationWorker>().build()
                                     WorkManager.getInstance(this@MainActivity).enqueue(request)
-                                }
+                                },
+                                { App.currentScreen = "main" }
                             )
                         }
                     }
@@ -318,11 +311,11 @@ fun JokeScreen(
 ) {
     val text by viewModel.jokeText.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
-    val gIndex by viewModel.gradientIndex.collectAsState()
+    val gColors by viewModel.gradientColors.collectAsState()
     val context = LocalContext.current
 
     val view = androidx.compose.ui.platform.LocalView.current
-    val (startColor, endColor) = gradientPresets[gIndex]
+    val (startColor, endColor) = gColors
 
     // Читаем значение (от 1 до 5)
     val relativeFontSize by settingsViewModel.relativeFontSize.collectAsState()
@@ -360,7 +353,7 @@ fun JokeScreen(
                 )
             } else {
                 AnimatedContent(
-                    targetState = text to gIndex,
+                    targetState = text to gColors,
                     transitionSpec = {
                         (fadeIn(animationSpec = tween(600)) +
                                 slideInVertically(animationSpec = tween(600), initialOffsetY = { it / 2 }))
@@ -382,9 +375,9 @@ fun JokeScreen(
                             fontFamily = ComfortaaFontFamily,
                             style = MaterialTheme.typography.bodyLarge.copy(
                                 color = Color.Black,
-                                fontSize = dynamicFontSize.sp,
+                                fontSize = dynamicFontSize.toSp(),
                                 // Добавим межстрочный интервал для удобства чтения
-                                lineHeight = (dynamicFontSize * 1.4).sp
+                                lineHeight = (dynamicFontSize * 1.4).toSp()
                             ),
                             modifier = Modifier.padding((dynamicFontSize * 1.4).dp)
                         )
@@ -455,6 +448,7 @@ fun JokeScreen(
                 FloatingActionButton(
                     onClick = {
                         if (settingsViewModel.isClickSoundEnabled.value) SoundManager.playSound(context, R.raw.button)
+                        if (settingsViewModel.isColorStyleEnabled.value) settingsViewModel.chooseRandomColors()
                         onOpenSettings()
                     },
                     shape = CircleShape,

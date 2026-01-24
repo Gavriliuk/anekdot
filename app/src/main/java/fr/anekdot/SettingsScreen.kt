@@ -5,12 +5,21 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -19,6 +28,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -28,23 +38,39 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import fr.anekdot.ui.theme.AnekdotTheme
+import fr.anekdot.Util
+import fr.anekdot.toSp
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class SettingsViewModel(private val settingsManager: SettingsManager) : ViewModel() {
+    private val _gradientColors = MutableStateFlow(Util.GetFirstColorPair())
+    val gradientColors = _gradientColors.asStateFlow()
+
+    fun chooseRandomColors() {
+        // Выбираем новый случайный индекс градиента
+        _gradientColors.value = Util.GetRandomColorPair();
+    }
+
     // Превращаем Flow из SettingsManager в StateFlow для Compose
     val relativeFontSize = settingsManager.relativeFontSize
         .map { it.coerceIn(1, 5) } // Вот она, железная защита
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 3)
+
+    val isColorStyleEnabled = settingsManager.isColorStyleEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
     val isLaughSoundEnabled = settingsManager.isLaughSoundEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
@@ -55,6 +81,10 @@ class SettingsViewModel(private val settingsManager: SettingsManager) : ViewMode
     // Методы для изменения настроек
     fun updateFontSize(level: Int) {
         viewModelScope.launch { settingsManager.saveFontSize(level) }
+    }
+
+    fun setColorStyleEnabled(enabled: Boolean) {
+        viewModelScope.launch { settingsManager.saveColorStyleEnabled(enabled) }
     }
 
     fun setLaughSoundEnabled(enabled: Boolean) {
@@ -72,32 +102,36 @@ fun SettingSlider(
     value: Float,
     onValueChange: (Float) -> Unit,
     valueRange: ClosedFloatingPointRange<Float>,
-    steps: Int = 0,
-    fontSize: Float,
-    colorActive: Color,
-    colorInactive: Color
+    steps: Int,
+    viewModel: SettingsViewModel,
+    baseFontSizeDp: Float
 ) {
+    val isColorStyleEnabled by viewModel.isColorStyleEnabled.collectAsState()
+    val gColors by viewModel.gradientColors.collectAsState()
+    val sliderColors = if (isColorStyleEnabled) SliderDefaults.colors(
+        Color.Black,
+        gColors.second,
+        Color.Black,
+        gColors.first,
+        Color.Black
+    ) else SliderDefaults.colors()
     Slider(
         value = value,
         onValueChange = onValueChange,
+        modifier = Modifier.requiredHeight(baseFontSizeDp.dp),
         valueRange = valueRange,
         steps = steps,
         thumb = {
-            val thumbSize = (fontSize * 1.5).dp // Делаем его в 1.5 раза больше шрифта
-            Box(
-                modifier = Modifier
-                    .size(thumbSize)
-                    .background(
-                        color = colorActive,
-                        shape = CircleShape
-                    )
+            Box(Modifier.size(baseFontSizeDp.dp).background(sliderColors.thumbColor, CircleShape))
+        },
+        track = { sliderState ->
+            SliderDefaults.Track(
+                sliderState,
+                Modifier.height((baseFontSizeDp * 0.4).dp),
+                colors = sliderColors
             )
         },
-        // Делаем хендл выразительным
-        colors = SliderDefaults.colors(
-            activeTrackColor = colorActive, // Яркая линия слева
-            inactiveTrackColor = colorInactive // Бледная справа
-        )
+        colors = sliderColors
     )
 }
 
@@ -105,25 +139,222 @@ fun SettingSlider(
 fun SettingRow(
     label: String,
     checked: Boolean,
-    fontSize: Float,
+    viewModel: SettingsViewModel,
+    baseFontSizeDp: Float,
     onCheckedChange: (Boolean) -> Unit
 ) {
+    val isColorStyleEnabled by viewModel.isColorStyleEnabled.collectAsState()
+    val textColor = if (isColorStyleEnabled) Color.Black else MaterialTheme.colorScheme.onSurface
+    val gColors by viewModel.gradientColors.collectAsState()
+    val (startColor, endColor) = gColors
+    val switchColors = if (isColorStyleEnabled) SwitchDefaults.colors(
+        checkedThumbColor = Color.Black,
+        uncheckedThumbColor = Color.Black,
+        checkedTrackColor = endColor,
+        uncheckedTrackColor = startColor,
+        checkedBorderColor = Color.Black,
+        uncheckedBorderColor = Color.Black
+    ) else SwitchDefaults.colors()
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = (fontSize * 0.4).dp), // Отступы зависят от размера шрифта
+            .padding(vertical = (baseFontSizeDp * 0.4).dp), // Отступы зависят от размера шрифта
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(
             text = label,
-            fontSize = fontSize.sp,
+            color = textColor,
+            fontSize = baseFontSizeDp.toSp(),
             modifier = Modifier.weight(1f)
         )
         Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange
+            checked,
+            onCheckedChange,
+            Modifier
+                .scale(baseFontSizeDp / 32)
+                .requiredHeight(baseFontSizeDp.dp)
+                .requiredWidth((baseFontSizeDp * 1.6).dp),
+            colors = switchColors
         )
+    }
+}
+
+@Composable
+fun SettingsContentGroup(
+    viewModel: SettingsViewModel,
+    baseFontSizeDp: Float,
+    content: @Composable () -> Unit
+) {
+    val isColorStyleEnabled by viewModel.isColorStyleEnabled.collectAsState()
+    if (isColorStyleEnabled) {
+        Card(
+            shape = RoundedCornerShape((baseFontSizeDp * 1.6).dp),
+            colors = CardDefaults.cardColors(
+                // Эффект матового стекла (90% прозрачности)
+                containerColor = Color.White.copy(alpha = 0.92f)
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = (baseFontSizeDp * .6).dp)
+        ) {
+            Box(modifier = Modifier.padding(horizontal = (baseFontSizeDp * .6).dp)) {
+                content()
+            }
+        }
+    } else {
+        content()
+    }
+}
+
+@Composable
+fun SettingsContent(
+    modifier: Modifier, // Сюда придет Modifier.padding(innerPadding)
+    viewModel: SettingsViewModel,
+    baseFontSizeDp: Float,
+    onSendNotification: () -> Unit
+) {
+    val isColorStyleEnabled by viewModel.isColorStyleEnabled.collectAsState()
+    val textColor = if (isColorStyleEnabled) Color.Black else MaterialTheme.colorScheme.onSurface
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(top = (baseFontSizeDp * .4).dp)
+            .padding(horizontal = (baseFontSizeDp * (if (isColorStyleEnabled) .9 else 1.5)).dp),
+        verticalArrangement = Arrangement.spacedBy((baseFontSizeDp * 1.5).dp)
+    ) {
+        // Собираем значения из ViewModel
+        val relativeFontSize by viewModel.relativeFontSize.collectAsState()
+        val isColorStyleEnabled by viewModel.isColorStyleEnabled.collectAsState()
+        val isLaughSoundEnabled by viewModel.isLaughSoundEnabled.collectAsState()
+        val isClickSoundEnabled by viewModel.isClickSoundEnabled.collectAsState()
+        val gColors by viewModel.gradientColors.collectAsState()
+        val (startColor, endColor) = gColors
+        val buttonColors = if (isColorStyleEnabled) ButtonDefaults.buttonColors(
+            containerColor = startColor,
+            contentColor = Color.Black
+        ) else ButtonDefaults.buttonColors()
+
+        // Секция размера шрифта
+        SettingsContentGroup(viewModel, baseFontSizeDp) {
+            Column(modifier = Modifier.padding(vertical = (baseFontSizeDp * 0.4).dp), ) {
+                Text(
+                    "Размер шрифта: $relativeFontSize",
+                    color = textColor,
+                    fontSize = baseFontSizeDp.toSp(),
+                    modifier = Modifier.padding(bottom = (baseFontSizeDp * 0.2).dp)
+                )
+                SettingSlider(
+                    relativeFontSize.toFloat(),
+                    { viewModel.updateFontSize(it.toInt()) },
+                    1f..5f,
+                    3,
+                    viewModel,
+                    baseFontSizeDp
+                )
+            }
+        }
+
+        // Блок разметки
+        SettingsContentGroup(viewModel, baseFontSizeDp) {
+            SettingRow("Цветной фон", isColorStyleEnabled, viewModel, baseFontSizeDp) {
+                if (it) viewModel.chooseRandomColors()
+                viewModel.setColorStyleEnabled(it)
+            }
+        }
+
+        // Блок звуков
+        SettingsContentGroup(viewModel, baseFontSizeDp) {
+            SettingRow("Звук хохота", isLaughSoundEnabled, viewModel, baseFontSizeDp) {
+                viewModel.setLaughSoundEnabled(it)
+            }
+        }
+
+        SettingsContentGroup(viewModel, baseFontSizeDp) {
+            SettingRow("Звук кнопок", isClickSoundEnabled, viewModel, baseFontSizeDp) {
+                viewModel.setClickSoundEnabled(it)
+            }
+        }
+
+        // Кнопка отправки уведомления
+        SettingsContentGroup(viewModel, baseFontSizeDp) {
+            Button(
+                onClick = onSendNotification,
+                colors = buttonColors,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = (baseFontSizeDp * .6).dp)
+                    .requiredHeight((baseFontSizeDp * 2).dp)
+            ) {
+                Text("Анекдот дня", fontSize = baseFontSizeDp.toSp())
+            }
+        }
+    }
+}
+
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
+fun SettingsTopAppBar(
+    viewModel: SettingsViewModel,
+    baseFontSizeDp: Float,
+    onBack: () -> Unit
+) {
+    val isColorStyleEnabled by viewModel.isColorStyleEnabled.collectAsState()
+    val textColor = if (isColorStyleEnabled) Color.Black else MaterialTheme.colorScheme.onSurface
+    TopAppBar(
+        title = { Text("Настройки", color = textColor, fontSize = (baseFontSizeDp * 1.2).toSp()) },
+        modifier = Modifier.requiredHeight((baseFontSizeDp * 3).dp),
+        navigationIcon = {
+            IconButton(onClick = onBack, modifier = Modifier.size((baseFontSizeDp * 2.4).dp)) {
+                Icon(
+                    Icons.AutoMirrored.Rounded.ArrowBack,
+                    "Назад",
+                    Modifier.size((baseFontSizeDp * 1.8).dp),
+                    textColor)
+            }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = Color.Transparent // Оставляем фон чистым
+        )
+    )
+}
+
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
+fun SettingsScreenClassic(
+    viewModel: SettingsViewModel,
+    baseFontSizeDp: Float,
+    onSendNotification: () -> Unit,
+    onBack: () -> Unit
+) {
+    Scaffold(
+        topBar = { SettingsTopAppBar(viewModel, baseFontSizeDp, onBack) }
+    ) { innerPadding ->
+        SettingsContent(Modifier.padding(innerPadding), viewModel, baseFontSizeDp, onSendNotification)
+    }
+}
+
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
+fun SettingsScreenColored(
+    viewModel: SettingsViewModel,
+    baseFontSizeDp: Float,
+    onSendNotification: () -> Unit,
+    onBack: () -> Unit
+) {
+    val gColors by viewModel.gradientColors.collectAsState()
+    val (startColor, endColor) = gColors
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Brush.verticalGradient(listOf(startColor, endColor)))
+    ) {
+        Scaffold(
+            topBar = { SettingsTopAppBar(viewModel, baseFontSizeDp, onBack) },
+            containerColor = Color.Transparent // Прозрачный фон, чтобы видеть градиент
+        ) { innerPadding ->
+            SettingsContent(Modifier.padding(innerPadding), viewModel, baseFontSizeDp, onSendNotification)
+        }
     }
 }
 
@@ -131,77 +362,18 @@ fun SettingRow(
 @OptIn(ExperimentalMaterial3Api::class)
 fun SettingsScreen(
     viewModel: SettingsViewModel,
-    dynamicFontSize: Float, // Коэффициент из MainActivity
+    baseFontSizeDp: Float, // Коэффициент из MainActivity
     onSendNotification: () -> Unit,
     onBack: () -> Unit      // Действие при выходе из настроек
 ) {
-    // Собираем значения из ViewModel
-    val relativeFontSize by viewModel.relativeFontSize.collectAsState()
-    val isLaughSoundEnabled by viewModel.isLaughSoundEnabled.collectAsState()
-    val isClickSoundEnabled by viewModel.isClickSoundEnabled.collectAsState()
+    // Подписываемся на настройку стиля
+    val isColorStyleEnabled by viewModel.isColorStyleEnabled.collectAsState()
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Настройки", fontSize = (dynamicFontSize * 1.2).sp) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Назад",
-                            modifier = Modifier.size((dynamicFontSize * 1.5).dp)
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent // Оставляем фон чистым
-                )
-            )
-        }
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(top = (dynamicFontSize * 1.5).dp)
-                .padding(horizontal = (dynamicFontSize * 1.5).dp),
-            verticalArrangement = Arrangement.spacedBy((dynamicFontSize * 1.5).dp)
-        ) {
-            // Секция размера шрифта
-            Column {
-                Text(
-                    "Размер шрифта: $relativeFontSize",
-                    fontSize = dynamicFontSize.sp,
-                    modifier = Modifier.padding(bottom = (dynamicFontSize * 0.2).dp)
-                )
-                SettingSlider(
-                    value = relativeFontSize.toFloat(),
-                    onValueChange = { viewModel.updateFontSize(it.toInt()) },
-                    valueRange = 1f..5f,
-                    steps = 3,
-                    fontSize = dynamicFontSize,
-                    colorActive = MaterialTheme.colorScheme.primary,
-                    colorInactive = MaterialTheme.colorScheme.primaryContainer
-                )
-            }
-
-            // Блок звуков
-            SettingRow("Звук хохота", isLaughSoundEnabled, dynamicFontSize) {
-                viewModel.setLaughSoundEnabled(it)
-            }
-
-            SettingRow("Звук кнопок", isClickSoundEnabled, dynamicFontSize) {
-                viewModel.setClickSoundEnabled(it)
-            }
-
-            // Кнопка отправки уведомления
-            Button(
-                onClick = onSendNotification,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Анекдот дня", fontSize = dynamicFontSize.sp)
-            }
-        }
+    // Мгновенный выбор разметки при изменении чекбокса
+    if (isColorStyleEnabled) {
+        SettingsScreenColored(viewModel, baseFontSizeDp, onSendNotification, onBack)
+    } else {
+        SettingsScreenClassic(viewModel, baseFontSizeDp, onSendNotification, onBack)
     }
 }
 
@@ -217,7 +389,7 @@ fun SettingsScreenPreview() {
     AnekdotTheme {
         SettingsScreen(
             viewModel = viewModel,
-            dynamicFontSize = 20f,   // Просто число для примера, как на планшете
+            baseFontSizeDp = 20f,   // Просто число для примера, как на планшете
             onSendNotification = {}, // Пустая заглушка
             onBack = {}              // Пустая заглушка
         )
