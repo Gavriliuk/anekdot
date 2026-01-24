@@ -1,5 +1,7 @@
 package fr.anekdot
 
+import android.content.Context
+import android.media.MediaPlayer
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.sp
@@ -19,6 +21,34 @@ class Util {
         fun GetFirstColorPair(): Pair<Color, Color> = gradientPresets[0]
 
         fun GetRandomColorPair(): Pair<Color, Color> = gradientPresets[(gradientPresets.indices).random()]
+
+        // Source: https://zvukogram.com/
+        private val laughterResources = listOf(
+            R.raw.carefree_cheerful_laughter_of_a_young_man, R.raw.chilling_laughter_of_baba_yaga,
+            R.raw.creepy_laugh_single_long_male, R.raw.creepy_laugh_single_long_male_jellied,
+            R.raw.creepy_laugh_single_male_close, R.raw.grandpa_laughs, R.raw.infectious_laughter,
+            R.raw.jellied_male_laughter, R.raw.lady_laughs, R.raw.lady_laughs_cheeky,
+            R.raw.laughter_1, R.raw.laughter_2, R.raw.laughter_5, R.raw.laughter_13,
+            R.raw.laughter_22, R.raw.laughter_24, R.raw.laughter_26, R.raw.laughter_36,
+            R.raw.laughter_37, R.raw.laughter_38, R.raw.laughter_43, R.raw.laughter_45,
+            R.raw.laughter_sinister_long_low, R.raw.low_verbal_laughter, R.raw.male_short_laugh,
+            R.raw.malevolent_laughter_of_a_man, R.raw.the_man_is_very_funny,
+            R.raw.the_sound_of_male_laughter_man_laughing, R.raw.the_teasing_laughter_of_the_seductress,
+            R.raw.the_woman_laughs_women39s_laughter, R.raw.uncontrollable_hysterical_laughter_of_a_man,
+            R.raw.vulgar_female_laughter, R.raw.witch_single_long_rhythmic, R.raw.woman_laughing
+        )
+
+        fun GetRandomLaugh() = laughterResources.random()
+    }
+}
+
+object SoundManager {
+    private var mediaPlayer: MediaPlayer? = null
+
+    fun playSound(context: Context, resId: Int) {
+        mediaPlayer?.release() // Освобождаем ресурсы предыдущего звука
+        mediaPlayer = MediaPlayer.create(context, resId)
+        mediaPlayer?.start()
     }
 }
 

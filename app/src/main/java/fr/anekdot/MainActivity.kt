@@ -5,7 +5,6 @@ import SettingsScreen
 import SettingsViewModel
 import android.content.Context
 import android.content.Intent
-import android.media.MediaPlayer
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -87,16 +86,6 @@ import java.security.cert.CertificateFactory
 import javax.net.ssl.SSLContext
 import javax.net.ssl.TrustManagerFactory
 import javax.net.ssl.X509TrustManager
-
-object SoundManager {
-    private var mediaPlayer: MediaPlayer? = null
-
-    fun playSound(context: Context, resId: Int) {
-        mediaPlayer?.release() // Освобождаем ресурсы предыдущего звука
-        mediaPlayer = MediaPlayer.create(context, resId)
-        mediaPlayer?.start()
-    }
-}
 
 val ComfortaaFontFamily = FontFamily(
     Font(R.font.comfortaa_regular, FontWeight.Normal)
@@ -325,7 +314,7 @@ fun JokeScreen(
     LaunchedEffect(text) {
         if (settingsViewModel.isLaughSoundEnabled.value && text.length > 50 && (1..3).random() == 1) { // Если пришел анекдот и повезло (шанс 1 к 7)
             kotlinx.coroutines.delay((2000..5000).random().toLong())
-            if (settingsViewModel.isLaughSoundEnabled.value) SoundManager.playSound(context, laughterResources.random())
+            if (settingsViewModel.isLaughSoundEnabled.value) SoundManager.playSound(context, Util.GetRandomLaugh())
         }
     }
 
@@ -400,7 +389,7 @@ fun JokeScreen(
                 FloatingActionButton(
                     onClick = {
                         if (!isLoading) {
-                            if (settingsViewModel.isClickSoundEnabled.value) SoundManager.playSound(context, R.raw.bluster)
+                            if (settingsViewModel.isClickSoundEnabled.value) SoundManager.playSound(context, R.raw.svist_fit_ha)
                             val shareText = "$text\n\nВы хочете шуток? Их есть у меня:\n"+
                                     "https://play.google.com/store/apps/details?id=fr.anekdot"
                             val sendIntent = Intent().apply {
@@ -428,7 +417,7 @@ fun JokeScreen(
                     onClick = {
                         if (!isLoading) {
                             view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                            if (settingsViewModel.isClickSoundEnabled.value) SoundManager.playSound(context, R.raw.button)
+                            if (settingsViewModel.isClickSoundEnabled.value) SoundManager.playSound(context, R.raw.bluster)
                             viewModel.fetchNextJoke()
                         }
                     },
@@ -478,22 +467,6 @@ fun JokeScreen(
         }
     }
 }
-
-// Source: https://zvukogram.com/
-val laughterResources = listOf(
-    R.raw.carefree_cheerful_laughter_of_a_young_man, R.raw.chilling_laughter_of_baba_yaga,
-    R.raw.creepy_laugh_single_long_male, R.raw.creepy_laugh_single_long_male_jellied,
-    R.raw.creepy_laugh_single_male_close, R.raw.grandpa_laughs, R.raw.infectious_laughter,
-    R.raw.jellied_male_laughter, R.raw.lady_laughs, R.raw.lady_laughs_cheeky,
-    R.raw.laughter_1, R.raw.laughter_2, R.raw.laughter_5, R.raw.laughter_13,
-    R.raw.laughter_22, R.raw.laughter_24, R.raw.laughter_26, R.raw.laughter_36,
-    R.raw.laughter_37, R.raw.laughter_38, R.raw.laughter_43, R.raw.laughter_45,
-    R.raw.laughter_sinister_long_low, R.raw.low_verbal_laughter, R.raw.male_short_laugh,
-    R.raw.malevolent_laughter_of_a_man, R.raw.the_man_is_very_funny,
-    R.raw.the_sound_of_male_laughter_man_laughing, R.raw.the_teasing_laughter_of_the_seductress,
-    R.raw.the_woman_laughs_women39s_laughter, R.raw.uncontrollable_hysterical_laughter_of_a_man,
-    R.raw.vulgar_female_laughter, R.raw.witch_single_long_rhythmic, R.raw.woman_laughing
-)
 
 @Preview(showBackground = true)
 @Composable
