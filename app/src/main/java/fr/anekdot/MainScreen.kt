@@ -182,51 +182,49 @@ fun MainButton(
 }
 
 @Composable
-fun MainText(
+fun MainTextColored(
     viewModel: MainViewModel,
-    settingsViewModel: SettingsViewModel
+    dynamicFontSize: Double
 ) {
-    val text by viewModel.jokeText.collectAsState()
-    val oldText by viewModel.oldJokeText.collectAsState()
-    val baseFontSize = App.baseFontSize
-    // Читаем значение (от 1 до 5)
-    val relativeFontSize by settingsViewModel.relativeFontSize.collectAsState()
-    val dynamicFontSize = baseFontSize * 0.2 * (2 + relativeFontSize) // от 0.6 до 1.4
-    if (App.settingsManager.isColorStyleEnabled.collectAsState().value) {
-        Card(
-            Modifier.graphicsLayer {
-                    // Вращаем по оси Y
-                    this.rotationY = viewModel.rotationAngle
-                    // Добавляем перспективу (чтобы один край казался ближе другого)
-                    cameraDistance = 12f * density
-                },
-            RoundedCornerShape((baseFontSize * 1.6).dp),
-            CardDefaults.cardColors(Color.White.copy(alpha = .9f)),
-            CardDefaults.cardElevation((baseFontSize * .6f).dp)
-        ) {
-            Text(
-                text = if (viewModel.rotationAngle > -180f) oldText else text,
-                fontFamily = ComfortaaFontFamily,
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    color = Color.Black,
-                    fontSize = dynamicFontSize.toSp(),
-                    // Добавим межстрочный интервал для удобства чтения
-                    lineHeight = (dynamicFontSize * 1.4).toSp()
-                ),
-                modifier = Modifier.padding((baseFontSize * 1.4).dp)
-                    .graphicsLayer { alpha = if (viewModel.rotationAngle < -90 && viewModel.rotationAngle > -270) 0f else 1f}
-            )
-        }
-    } else {
+    Card(
+        Modifier.graphicsLayer {
+                // Вращаем по оси Y
+                this.rotationY = viewModel.rotationAngle
+                // Добавляем перспективу (чтобы один край казался ближе другого)
+                cameraDistance = 12f * density
+            },
+        RoundedCornerShape((App.baseFontSize * 1.6).dp),
+        CardDefaults.cardColors(Color.White.copy(alpha = .9f)),
+        CardDefaults.cardElevation((App.baseFontSize * .6f).dp)
+    ) {
         Text(
-            text = text,
+            text = if (viewModel.rotationAngle > -180f) viewModel.oldJokeText.collectAsState().value else viewModel.jokeText.collectAsState().value,
+            fontFamily = ComfortaaFontFamily,
             style = MaterialTheme.typography.bodyLarge.copy(
+                color = Color.Black,
                 fontSize = dynamicFontSize.toSp(),
                 // Добавим межстрочный интервал для удобства чтения
                 lineHeight = (dynamicFontSize * 1.4).toSp()
-            )
+            ),
+            modifier = Modifier.padding((App.baseFontSize * 1.4).dp)
+                .graphicsLayer { alpha = if (viewModel.rotationAngle < -90 && viewModel.rotationAngle > -270) 0f else 1f}
         )
     }
+}
+
+@Composable
+fun MainTextClassic(
+    viewModel: MainViewModel,
+    dynamicFontSize: Double
+) {
+    Text(
+        text = viewModel.jokeText.collectAsState().value,
+        style = MaterialTheme.typography.bodyLarge.copy(
+            fontSize = dynamicFontSize.toSp(),
+            // Добавим межстрочный интервал для удобства чтения
+            lineHeight = (dynamicFontSize * 1.4).toSp()
+        )
+    )
 }
 
 @Composable
@@ -265,12 +263,8 @@ fun MainScreen(
 
     LaunchedEffect(viewModel.rotationTarget) {
         if (viewModel.rotationTarget != 0f) {
-            if (settingsViewModel.isAnimationEnabled.value) {
-                // Запускаем анимацию до -360
-                animatableAngle.animateTo(
-                    targetValue = viewModel.rotationTarget,
-                    animationSpec = tween(durationMillis = 800, easing = FastOutSlowInEasing)
-                )
+            if (settingsViewModel.isAnimationEnabled.value) { // Запускаем анимацию до -360
+                animatableAngle.animateTo(viewModel.rotationTarget, tween(800, 0, FastOutSlowInEasing))
             }
             // Как только докрутили — мгновенно прыгаем в 0 (без анимации!)
             animatableAngle.snapTo(0f)
@@ -290,16 +284,22 @@ fun MainScreen(
 
     Box(boxModifier.fillMaxSize()) {
         // Основной контент теперь занимает всё место, центрируясь
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = baseFontSize.dp)
-                .verticalScroll(rememberScrollState())
-                .padding(top = baseFontSize.dp, bottom = (baseFontSize * 6).dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+        Column(Modifier
+            .fillMaxSize()
+            .padding(horizontal = baseFontSize.dp)
+            .verticalScroll(rememberScrollState())
+            .padding(top = baseFontSize.dp, bottom = (baseFontSize * 6).dp),
+            Arrangement.Center,
+            Alignment.CenterHorizontally
         ) {
-            MainText(viewModel, settingsViewModel)
+            // Читаем значение (от 1 до 5)
+            val relativeFontSize by settingsViewModel.relativeFontSize.collectAsState()
+            val dynamicFontSize = baseFontSize * 0.2 * (2 + relativeFontSize) // от 0.6 до 1.4
+            if (isColored) {
+                MainTextColored(viewModel, dynamicFontSize)
+            } else {
+                MainTextClassic(viewModel, dynamicFontSize)
+            }
         }
 
         if (isLoading) { // Большая крутилка на фоне текста
