@@ -2,8 +2,13 @@ import android.content.Context
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import fr.anekdot.App
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 
 // Создаем расширение для контекста, чтобы DataStore был доступен везде
 val Context.dataStore by preferencesDataStore(name = "settings")
@@ -19,22 +24,26 @@ class SettingsManager {
 
     private val context = App.getContext()
 
+    // Нам нужна область видимости. Обычно в синглтоне это GlobalScope
+    // (в данном случае это допустимо, так как менеджер живет вечно)
+    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+
     // Читаем настройки (Flow позволяет интерфейсу обновляться мгновенно)
-    val relativeFontSize: Flow<Int> = context.dataStore.data.map { pref ->
+    val relativeFontSize: StateFlow<Int> = context.dataStore.data.map { pref ->
         pref[RELATIVE_FONT_SIZE] ?: 3
-    }
+    }.stateIn(scope, SharingStarted.Eagerly, 3)
 
-    val isColorStyleEnabled: Flow<Boolean> = context.dataStore.data.map { pref ->
+    val isColorStyleEnabled: StateFlow<Boolean> = context.dataStore.data.map { pref ->
         pref[IS_COLOR_STYLE_ENABLED] ?: true
-    }
+    }.stateIn(scope, SharingStarted.Eagerly, true)
 
-    val isLaughSoundEnabled: Flow<Boolean> = context.dataStore.data.map { pref ->
+    val isLaughSoundEnabled: StateFlow<Boolean> = context.dataStore.data.map { pref ->
         pref[IS_LAUGH_SOUND_ENABLED] ?: true
-    }
+    }.stateIn(scope, SharingStarted.Eagerly, true)
 
-    val isClickSoundEnabled: Flow<Boolean> = context.dataStore.data.map { pref ->
+    val isClickSoundEnabled: StateFlow<Boolean> = context.dataStore.data.map { pref ->
         pref[IS_CLICK_SOUND_ENABLED] ?: true
-    }
+    }.stateIn(scope, SharingStarted.Eagerly, true)
 
     // Методы для сохранения (записи)
     suspend fun saveFontSize(size: Int) {

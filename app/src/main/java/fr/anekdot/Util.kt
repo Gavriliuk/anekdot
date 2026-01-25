@@ -1,6 +1,5 @@
 package fr.anekdot
 
-import android.content.Context
 import android.media.MediaPlayer
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
@@ -48,9 +47,9 @@ class Util {
 object SoundManager {
     private var mediaPlayer: MediaPlayer? = null
 
-    fun playSound(context: Context, resId: Int) {
+    fun playSound(resId: Int) {
         mediaPlayer?.release() // Освобождаем ресурсы предыдущего звука
-        mediaPlayer = MediaPlayer.create(context, resId)
+        mediaPlayer = MediaPlayer.create(App.getContext(), resId)
         mediaPlayer?.start()
     }
 }

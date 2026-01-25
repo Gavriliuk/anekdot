@@ -1,3 +1,4 @@
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,7 +44,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import fr.anekdot.App
+import fr.anekdot.NotificationWorker
 import fr.anekdot.Util
 import fr.anekdot.toSp
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -95,6 +99,11 @@ class SettingsViewModel : ViewModel() {
     fun setClickSoundEnabled(enabled: Boolean) {
         viewModelScope.launch { settingsManager.saveClickSoundEnabled(enabled) }
     }
+
+    fun sendDaylyJokeNotification() {
+        val request = OneTimeWorkRequestBuilder<NotificationWorker>().build()
+        WorkManager.getInstance(App.getContext()).enqueue(request)
+    }
 }
 
 @Composable
@@ -104,8 +113,7 @@ fun SettingSlider(
     onValueChange: (Float) -> Unit,
     valueRange: ClosedFloatingPointRange<Float>,
     steps: Int,
-    viewModel: SettingsViewModel,
-    baseFontSizeDp: Float
+    viewModel: SettingsViewModel
 ) {
     val isColorStyleEnabled by viewModel.isColorStyleEnabled.collectAsState()
     val gColors by viewModel.gradientColors.collectAsState()
@@ -119,16 +127,16 @@ fun SettingSlider(
     Slider(
         value = value,
         onValueChange = onValueChange,
-        modifier = Modifier.requiredHeight(baseFontSizeDp.dp),
+        modifier = Modifier.requiredHeight(App.baseFontSize.dp),
         valueRange = valueRange,
         steps = steps,
         thumb = {
-            Box(Modifier.size(baseFontSizeDp.dp).background(sliderColors.thumbColor, CircleShape))
+            Box(Modifier.size(App.baseFontSize.dp).background(sliderColors.thumbColor, CircleShape))
         },
         track = { sliderState ->
             SliderDefaults.Track(
                 sliderState,
-                Modifier.height((baseFontSizeDp * 0.4).dp),
+                Modifier.height((App.baseFontSize * 0.4).dp),
                 colors = sliderColors
             )
         },
@@ -141,7 +149,6 @@ fun SettingRow(
     label: String,
     checked: Boolean,
     viewModel: SettingsViewModel,
-    baseFontSizeDp: Float,
     onCheckedChange: (Boolean) -> Unit
 ) {
     val isColorStyleEnabled by viewModel.isColorStyleEnabled.collectAsState()
@@ -160,23 +167,23 @@ fun SettingRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = (baseFontSizeDp * 0.4).dp), // Отступы зависят от размера шрифта
+            .padding(vertical = (App.baseFontSize * 0.4).dp), // Отступы зависят от размера шрифта
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(
             text = label,
             color = textColor,
-            fontSize = baseFontSizeDp.toSp(),
+            fontSize = App.baseFontSize.toSp(),
             modifier = Modifier.weight(1f)
         )
         Switch(
             checked,
             onCheckedChange,
             Modifier
-                .scale(baseFontSizeDp / 32)
-                .requiredHeight(baseFontSizeDp.dp)
-                .requiredWidth((baseFontSizeDp * 1.6).dp),
+                .scale((App.baseFontSize / 32).toFloat())
+                .requiredHeight(App.baseFontSize.dp)
+                .requiredWidth((App.baseFontSize * 1.6).dp),
             colors = switchColors
         )
     }
@@ -185,20 +192,19 @@ fun SettingRow(
 @Composable
 fun SettingsContentGroup(
     viewModel: SettingsViewModel,
-    baseFontSizeDp: Float,
     content: @Composable () -> Unit
 ) {
     val isColorStyleEnabled by viewModel.isColorStyleEnabled.collectAsState()
     if (isColorStyleEnabled) {
         Card(
-            shape = RoundedCornerShape((baseFontSizeDp * 1.6).dp),
+            shape = RoundedCornerShape((App.baseFontSize * 1.6).dp),
             colors = CardDefaults.cardColors(
                 // Эффект матового стекла (90% прозрачности)
                 containerColor = Color.White.copy(alpha = 0.92f)
             ),
-            elevation = CardDefaults.cardElevation(defaultElevation = (baseFontSizeDp * .6).dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = (App.baseFontSize * .6).dp)
         ) {
-            Box(modifier = Modifier.padding(horizontal = (baseFontSizeDp * .6).dp)) {
+            Box(modifier = Modifier.padding(horizontal = (App.baseFontSize * .6).dp)) {
                 content()
             }
         }
@@ -210,9 +216,7 @@ fun SettingsContentGroup(
 @Composable
 fun SettingsContent(
     modifier: Modifier, // Сюда придет Modifier.padding(innerPadding)
-    viewModel: SettingsViewModel,
-    baseFontSizeDp: Float,
-    onSendNotification: () -> Unit
+    viewModel: SettingsViewModel
 ) {
     val isColorStyleEnabled by viewModel.isColorStyleEnabled.collectAsState()
     val textColor = if (isColorStyleEnabled) Color.Black else MaterialTheme.colorScheme.onSurface
@@ -220,9 +224,9 @@ fun SettingsContent(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(top = (baseFontSizeDp * .4).dp)
-            .padding(horizontal = (baseFontSizeDp * (if (isColorStyleEnabled) .9 else 1.5)).dp),
-        verticalArrangement = Arrangement.spacedBy((baseFontSizeDp * 1.5).dp)
+            .padding(top = (App.baseFontSize * .4).dp)
+            .padding(horizontal = (App.baseFontSize * (if (isColorStyleEnabled) .9 else 1.5)).dp),
+        verticalArrangement = Arrangement.spacedBy((App.baseFontSize * 1.5).dp)
     ) {
         // Собираем значения из ViewModel
         val relativeFontSize by viewModel.relativeFontSize.collectAsState()
@@ -237,57 +241,56 @@ fun SettingsContent(
         ) else ButtonDefaults.buttonColors()
 
         // Секция размера шрифта
-        SettingsContentGroup(viewModel, baseFontSizeDp) {
-            Column(modifier = Modifier.padding(vertical = (baseFontSizeDp * 0.4).dp), ) {
+        SettingsContentGroup(viewModel) {
+            Column(modifier = Modifier.padding(vertical = (App.baseFontSize * 0.4).dp), ) {
                 Text(
                     "Размер шрифта: $relativeFontSize",
                     color = textColor,
-                    fontSize = baseFontSizeDp.toSp(),
-                    modifier = Modifier.padding(bottom = (baseFontSizeDp * 0.2).dp)
+                    fontSize = App.baseFontSize.toSp(),
+                    modifier = Modifier.padding(bottom = (App.baseFontSize * 0.2).dp)
                 )
                 SettingSlider(
                     relativeFontSize.toFloat(),
                     { viewModel.updateFontSize(it.toInt()) },
                     1f..5f,
                     3,
-                    viewModel,
-                    baseFontSizeDp
+                    viewModel
                 )
             }
         }
 
         // Блок разметки
-        SettingsContentGroup(viewModel, baseFontSizeDp) {
-            SettingRow("Цветной фон", isColorStyleEnabled, viewModel, baseFontSizeDp) {
+        SettingsContentGroup(viewModel) {
+            SettingRow("Цветной фон", isColorStyleEnabled, viewModel) {
                 if (it) viewModel.chooseRandomColors()
                 viewModel.setColorStyleEnabled(it)
             }
         }
 
         // Блок звуков
-        SettingsContentGroup(viewModel, baseFontSizeDp) {
-            SettingRow("Звук хохота", isLaughSoundEnabled, viewModel, baseFontSizeDp) {
+        SettingsContentGroup(viewModel) {
+            SettingRow("Звук хохота", isLaughSoundEnabled, viewModel) {
                 viewModel.setLaughSoundEnabled(it)
             }
         }
 
-        SettingsContentGroup(viewModel, baseFontSizeDp) {
-            SettingRow("Звук кнопок", isClickSoundEnabled, viewModel, baseFontSizeDp) {
+        SettingsContentGroup(viewModel) {
+            SettingRow("Звук кнопок", isClickSoundEnabled, viewModel) {
                 viewModel.setClickSoundEnabled(it)
             }
         }
 
         // Кнопка отправки уведомления
-        SettingsContentGroup(viewModel, baseFontSizeDp) {
+        SettingsContentGroup(viewModel) {
             Button(
-                onClick = onSendNotification,
+                onClick = { viewModel.sendDaylyJokeNotification() },
                 colors = buttonColors,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = (baseFontSizeDp * .6).dp)
-                    .requiredHeight((baseFontSizeDp * 2).dp)
+                    .padding(vertical = (App.baseFontSize * .6).dp)
+                    .requiredHeight((App.baseFontSize * 2).dp)
             ) {
-                Text("Анекдот дня", fontSize = baseFontSizeDp.toSp())
+                Text("Анекдот дня", fontSize = App.baseFontSize.toSp())
             }
         }
     }
@@ -297,20 +300,19 @@ fun SettingsContent(
 @OptIn(ExperimentalMaterial3Api::class)
 fun SettingsTopAppBar(
     viewModel: SettingsViewModel,
-    baseFontSizeDp: Float,
-    onBack: () -> Unit
+    parentScreen: App.Screen
 ) {
     val isColorStyleEnabled by viewModel.isColorStyleEnabled.collectAsState()
     val textColor = if (isColorStyleEnabled) Color.Black else MaterialTheme.colorScheme.onSurface
     TopAppBar(
-        title = { Text("Настройки", color = textColor, fontSize = (baseFontSizeDp * 1.2).toSp()) },
-        modifier = Modifier.requiredHeight((baseFontSizeDp * 3).dp),
+        title = { Text("Настройки", color = textColor, fontSize = (App.baseFontSize * 1.2).toSp()) },
+        modifier = Modifier.requiredHeight((App.baseFontSize * 3).dp),
         navigationIcon = {
-            IconButton(onClick = onBack, modifier = Modifier.size((baseFontSizeDp * 2.4).dp)) {
+            IconButton(onClick = { App.currentScreen = parentScreen }, modifier = Modifier.size((App.baseFontSize * 2.4).dp)) {
                 Icon(
                     Icons.AutoMirrored.Rounded.ArrowBack,
                     "Назад",
-                    Modifier.size((baseFontSizeDp * 1.8).dp),
+                    Modifier.size((App.baseFontSize * 1.8).dp),
                     textColor)
             }
         },
@@ -323,25 +325,23 @@ fun SettingsTopAppBar(
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 fun SettingsScreenClassic(
+    modifier: Modifier,
     viewModel: SettingsViewModel,
-    baseFontSizeDp: Float,
-    onSendNotification: () -> Unit,
-    onBack: () -> Unit
+    parentScreen: App.Screen
 ) {
     Scaffold(
-        topBar = { SettingsTopAppBar(viewModel, baseFontSizeDp, onBack) }
+        topBar = { SettingsTopAppBar(viewModel, parentScreen) }
     ) { innerPadding ->
-        SettingsContent(Modifier.padding(innerPadding), viewModel, baseFontSizeDp, onSendNotification)
+        SettingsContent(modifier.padding(innerPadding), viewModel)
     }
 }
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 fun SettingsScreenColored(
+    modifier: Modifier,
     viewModel: SettingsViewModel,
-    baseFontSizeDp: Float,
-    onSendNotification: () -> Unit,
-    onBack: () -> Unit
+    parentScreen: App.Screen
 ) {
     val gColors by viewModel.gradientColors.collectAsState()
     val (startColor, endColor) = gColors
@@ -351,10 +351,10 @@ fun SettingsScreenColored(
             .background(Brush.verticalGradient(listOf(startColor, endColor)))
     ) {
         Scaffold(
-            topBar = { SettingsTopAppBar(viewModel, baseFontSizeDp, onBack) },
+            topBar = { SettingsTopAppBar(viewModel, parentScreen) },
             containerColor = Color.Transparent // Прозрачный фон, чтобы видеть градиент
         ) { innerPadding ->
-            SettingsContent(Modifier.padding(innerPadding), viewModel, baseFontSizeDp, onSendNotification)
+            SettingsContent(modifier.padding(innerPadding), viewModel)
         }
     }
 }
@@ -362,18 +362,22 @@ fun SettingsScreenColored(
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 fun SettingsScreen(
+    modifier: Modifier,
     viewModel: SettingsViewModel,
-    baseFontSizeDp: Float, // Коэффициент из MainActivity
-    onSendNotification: () -> Unit,
-    onBack: () -> Unit      // Действие при выходе из настроек
+    parentScreen: App.Screen
 ) {
     // Подписываемся на настройку стиля
     val isColorStyleEnabled by viewModel.isColorStyleEnabled.collectAsState()
 
+    // Перехватываем системную кнопку Назад
+    BackHandler {
+        App.currentScreen = App.Screen.MAIN
+    }
+
     // Мгновенный выбор разметки при изменении чекбокса
     if (isColorStyleEnabled) {
-        SettingsScreenColored(viewModel, baseFontSizeDp, onSendNotification, onBack)
+        SettingsScreenColored(modifier, viewModel, parentScreen)
     } else {
-        SettingsScreenClassic(viewModel, baseFontSizeDp, onSendNotification, onBack)
+        SettingsScreenClassic(modifier, viewModel, parentScreen)
     }
 }

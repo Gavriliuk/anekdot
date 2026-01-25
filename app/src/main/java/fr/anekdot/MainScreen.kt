@@ -1,9 +1,11 @@
 package fr.anekdot
 
 import SettingsViewModel
+import android.content.Context
 import android.content.Intent
 import android.util.Log
 import android.view.HapticFeedbackConstants
+import android.view.View
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -36,6 +38,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -45,9 +48,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -89,180 +93,187 @@ class MainViewModel : ViewModel() {
         // Выбираем новый случайный индекс градиента
         _gradientColors.value = Util.GetRandomColorPair();
     }
+
+    fun onShare(context: Context, text: String) {
+        if (!_isLoading.value && text.isNotBlank()) {
+            // Берем настройки напрямую из менеджера
+            if (App.settingsManager.isClickSoundEnabled.value) {
+                SoundManager.playSound(R.raw.svist_fit_ha)
+            }
+
+            val shareText = "${text}\n\nВы хочете шуток? Их есть у меня:\n" +
+                    "https://play.google.com/store/apps/details?id=fr.anekdot"
+
+            val sendIntent = Intent().apply {
+                action = Intent.ACTION_SEND
+                putExtra(Intent.EXTRA_TEXT, shareText)
+                type = "text/plain"
+            }
+            context.startActivity(Intent.createChooser(sendIntent, null))
+        }
+    }
+
+    fun onNext(context: Context, view: View) {
+        if (!isLoading.value) {
+            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+            if (App.settingsManager.isClickSoundEnabled.value) {
+                SoundManager.playSound(R.raw.bluster)
+            }
+            fetchNextJoke()
+        }
+    }
+
+    fun onSettings(settingsViewModel: SettingsViewModel) {
+        if (App.settingsManager.isClickSoundEnabled.value) {
+            SoundManager.playSound(R.raw.button)
+        }
+        if (App.settingsManager.isColorStyleEnabled.value) {
+            settingsViewModel.chooseRandomColors()
+        }
+        App.currentScreen = App.Screen.SETTINGS
+    }
+}
+
+@Composable
+fun MainButton(
+    viewModel: MainViewModel,
+    imageVector: ImageVector,
+    contentDescription: String,
+    iconSize: Float,
+    onClick: () -> Unit
+) {
+    val isColorStyle by App.settingsManager.isColorStyleEnabled.collectAsState()
+    val containerColor = if (isColorStyle) Color.White else MaterialTheme.colorScheme.surface
+    val contentColor = if (isColorStyle) viewModel.gradientColors.collectAsState().value.first else MaterialTheme.colorScheme.onSurface
+    val elevation = if (isColorStyle) FloatingActionButtonDefaults.elevation((iconSize * .2).dp) else FloatingActionButtonDefaults.elevation()
+    FloatingActionButton(onClick, Modifier, CircleShape, containerColor, contentColor, elevation) {
+        Icon(imageVector, contentDescription, Modifier.size(iconSize.dp))
+    }
+}
+
+@Composable
+fun MainText(
+    viewModel: MainViewModel,
+    settingsViewModel: SettingsViewModel,
+    text: String
+) {
+    val baseFontSize = App.baseFontSize
+    // Читаем значение (от 1 до 5)
+    val relativeFontSize by settingsViewModel.relativeFontSize.collectAsState()
+    val dynamicFontSize = baseFontSize * 0.2 * (2 + relativeFontSize) // от 0.6 до 1.4
+    if (App.settingsManager.isColorStyleEnabled.collectAsState().value) {
+        val gColors by viewModel.gradientColors.collectAsState()
+        AnimatedContent(
+            targetState = text to gColors,
+            transitionSpec = {
+                (fadeIn(animationSpec = tween(600)) +
+                        slideInVertically(animationSpec = tween(600), initialOffsetY = { it / 2 }))
+                    .togetherWith(fadeOut(animationSpec = tween(300)) +
+                            slideOutVertically(animationSpec = tween(300), targetOffsetY = { -it / 2 }))
+            },
+            label = "JokeAnimation"
+        ) { (targetText, _) ->
+            Card(
+                shape = RoundedCornerShape((baseFontSize * 1.6).dp),
+                colors = CardDefaults.cardColors(
+                    // Эффект матового стекла (90% прозрачности)
+                    containerColor = Color.White.copy(alpha = 0.92f)
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = (baseFontSize * .6).dp)
+            ) {
+                Text(
+                    text = text,
+                    fontFamily = ComfortaaFontFamily,
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        color = Color.Black,
+                        fontSize = dynamicFontSize.toSp(),
+                        // Добавим межстрочный интервал для удобства чтения
+                        lineHeight = (dynamicFontSize * 1.4).toSp()
+                    ),
+                    modifier = Modifier.padding((baseFontSize * 1.4).dp)
+                )
+            }
+        }
+    } else {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyLarge.copy(
+                fontSize = dynamicFontSize.toSp(),
+                // Добавим межстрочный интервал для удобства чтения
+                lineHeight = (dynamicFontSize * 1.4).toSp()
+            ),
+            modifier = Modifier//.padding((baseFontSize * 1.4).dp)
+        )
+    }
 }
 
 @Composable
 fun MainScreen(
-    modifier: Modifier = Modifier,
+    modifier: Modifier,
     viewModel: MainViewModel,
-    settingsViewModel: SettingsViewModel,
-    onOpenSettings: () -> Unit
+    settingsViewModel: SettingsViewModel
 ) {
-    val text by viewModel.jokeText.collectAsState()
+    val isColored by App.settingsManager.isColorStyleEnabled.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
-    val gColors by viewModel.gradientColors.collectAsState()
+    val text by viewModel.jokeText.collectAsState()
+
+    val baseFontSize = App.baseFontSize
     val context = LocalContext.current
+    val view = LocalView.current
 
-    val view = androidx.compose.ui.platform.LocalView.current
-    val (startColor, endColor) = gColors
-
-    // Читаем значение (от 1 до 5)
-    val relativeFontSize by settingsViewModel.relativeFontSize.collectAsState()
-    val smallestWidth = LocalConfiguration.current.smallestScreenWidthDp // Это ВСЕГДА меньшая сторона
-    val dynamicFontSize = smallestWidth * 0.01f * (2 + relativeFontSize)
-
-    LaunchedEffect(text) {
-        if (settingsViewModel.isLaughSoundEnabled.value && text.length > 50 && (1..3).random() == 1) { // Если пришел анекдот и повезло (шанс 1 к 7)
+    LaunchedEffect(text) { // Если пришел анекдот и повезло (шанс 1 к 7)
+        if (settingsViewModel.isLaughSoundEnabled.value && text.length > 50 && (1..3).random() == 1) {
             kotlinx.coroutines.delay((2000..5000).random().toLong())
-            if (settingsViewModel.isLaughSoundEnabled.value) SoundManager.playSound(context, Util.GetRandomLaugh())
+            if (settingsViewModel.isLaughSoundEnabled.value) {
+                SoundManager.playSound(Util.GetRandomLaugh())
+            }
         }
     }
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(startColor, endColor)))
-    ) {
+    val boxModifier = if (isColored) {
+        val gColors by viewModel.gradientColors.collectAsState()
+        val (startColor, endColor) = gColors
+        modifier.background(Brush.verticalGradient(listOf(startColor, endColor)))
+    } else {
+        modifier
+    }
+    Box(boxModifier.fillMaxSize()) {
         // Основной контент теперь занимает всё место, центрируясь
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = dynamicFontSize.dp)
+                .padding(horizontal = baseFontSize.dp)
                 .verticalScroll(rememberScrollState())
-                .padding(top = dynamicFontSize.dp, bottom = (dynamicFontSize * 6).dp),
+                .padding(top = baseFontSize.dp, bottom = (baseFontSize * 6).dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            if (isLoading) {
-                // Большая белая крутилка на цветном фоне
-                CircularProgressIndicator(
-                    modifier = Modifier.size((dynamicFontSize * 12).dp),
-                    color = Color.White,
-                    strokeWidth = (dynamicFontSize * .8).dp
-                )
+            if (isLoading) { // Большая белая крутилка на цветном фоне
+                val color = if (isColored) Color.White else ProgressIndicatorDefaults.circularColor
+                CircularProgressIndicator(Modifier.size((baseFontSize * 12).dp), color, (baseFontSize * .8).dp)
             } else {
-                AnimatedContent(
-                    targetState = text to gColors,
-                    transitionSpec = {
-                        (fadeIn(animationSpec = tween(600)) +
-                                slideInVertically(animationSpec = tween(600), initialOffsetY = { it / 2 }))
-                            .togetherWith(fadeOut(animationSpec = tween(300)) +
-                                    slideOutVertically(animationSpec = tween(300), targetOffsetY = { -it / 2 }))
-                    },
-                    label = "JokeAnimation"
-                ) { (targetText, _) ->
-                    Card(
-                        shape = RoundedCornerShape((dynamicFontSize * 1.6).dp),
-                        colors = CardDefaults.cardColors(
-                            // Эффект матового стекла (90% прозрачности)
-                            containerColor = Color.White.copy(alpha = 0.92f)
-                        ),
-                        elevation = CardDefaults.cardElevation(defaultElevation = (dynamicFontSize * .6).dp)
-                    ) {
-                        Text(
-                            text = targetText,
-                            fontFamily = ComfortaaFontFamily,
-                            style = MaterialTheme.typography.bodyLarge.copy(
-                                color = Color.Black,
-                                fontSize = dynamicFontSize.toSp(),
-                                // Добавим межстрочный интервал для удобства чтения
-                                lineHeight = (dynamicFontSize * 1.4).toSp()
-                            ),
-                            modifier = Modifier.padding((dynamicFontSize * 1.4).dp)
-                        )
-                    }
-                }
+                MainText(viewModel, settingsViewModel, text)
             }
         }
 
-        // Кнопки остаются внизу, они теперь главные акценты
+        // Кнопки остаются внизу, они теперь - главные акценты
         Box(modifier = Modifier.align(Alignment.BottomCenter)) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = (dynamicFontSize * 1.2).dp),
+                    .padding(bottom = (baseFontSize * 1.2).dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Кнопка "Поделиться"
-                FloatingActionButton(
-                    onClick = {
-                        if (!isLoading) {
-                            if (settingsViewModel.isClickSoundEnabled.value) SoundManager.playSound(context, R.raw.svist_fit_ha)
-                            val shareText = "$text\n\nВы хочете шуток? Их есть у меня:\n"+
-                                    "https://play.google.com/store/apps/details?id=fr.anekdot"
-                            val sendIntent = Intent().apply {
-                                action = Intent.ACTION_SEND
-                                putExtra(Intent.EXTRA_TEXT, shareText)
-                                type = "text/plain"
-                            }
-                            context.startActivity(Intent.createChooser(sendIntent, null))
-                        }
-                    },
-                    shape = CircleShape,
-                    containerColor = Color.White,
-                    contentColor = startColor,
-                    elevation = FloatingActionButtonDefaults.elevation((dynamicFontSize * .4).dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Share,
-                        contentDescription = "Поделиться",
-                        modifier = Modifier.size((dynamicFontSize * 2).dp)
-                    )
-                }
-
-                // Кнопка "Следующий"
-                FloatingActionButton(
-                    onClick = {
-                        if (!isLoading) {
-                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                            if (settingsViewModel.isClickSoundEnabled.value) SoundManager.playSound(context, R.raw.bluster)
-                            viewModel.fetchNextJoke()
-                        }
-                    },
-                    shape = CircleShape,
-                    containerColor = Color.White,
-                    contentColor = startColor,
-                    elevation = FloatingActionButtonDefaults.elevation((dynamicFontSize * .8).dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = "Следующий",
-                        modifier = Modifier.size((dynamicFontSize * 4).dp)
-                    )
-                }
-
-                // Кнопка "Настройки"
-                FloatingActionButton(
-                    onClick = {
-                        if (settingsViewModel.isClickSoundEnabled.value) SoundManager.playSound(context, R.raw.button)
-                        if (settingsViewModel.isColorStyleEnabled.value) settingsViewModel.chooseRandomColors()
-                        onOpenSettings()
-                    },
-                    shape = CircleShape,
-                    containerColor = Color.White,
-                    contentColor = startColor,
-                    elevation = FloatingActionButtonDefaults.elevation((dynamicFontSize * .4).dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = "Настройки",
-                        modifier = Modifier.size((dynamicFontSize * 2).dp)
-                    )
-                }
+                MainButton(viewModel, Icons.Default.Share, "Поделиться", baseFontSize * 2) { viewModel.onShare(context, text) }
+                MainButton(viewModel, Icons.Default.Refresh, "Следующий", baseFontSize * 4) { viewModel.onNext(context, view) }
+                MainButton(viewModel, Icons.Default.Settings, "Настройки", baseFontSize * 2) { viewModel.onSettings(settingsViewModel) }
             }
 
             // Если идет загрузка, перекрываем кнопки невидимым кликабельным слоем
-            if (isLoading) {
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .pointerInput(Unit) {
-                            detectTapGestures { } // поглощаем клики, ничего не делая
-                        }
-
-                )
+            if (isLoading) { // поглощаем клики, ничего не делая
+                Box(Modifier.matchParentSize().pointerInput(Unit) { detectTapGestures { } })
             }
         }
     }

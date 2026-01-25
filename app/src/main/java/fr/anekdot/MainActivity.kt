@@ -14,12 +14,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
 import com.google.android.gms.security.ProviderInstaller
 import fr.anekdot.ui.theme.AnekdotTheme
 
@@ -47,33 +44,22 @@ class MainActivity : ComponentActivity() {
             requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 101)
         }
         setContent {
-            // Получаем коэффициент размера из настроек для адаптивности
-            val smallestScreenWidthDp = LocalConfiguration.current.smallestScreenWidthDp
-            val baseFontSizeDp = smallestScreenWidthDp * .05f
             AnekdotTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     // Выбираем, какой экран показать
                     when (App.currentScreen) {
-                        "main" -> {
+                        App.Screen.MAIN -> {
                             MainScreen(
-                                modifier = Modifier.padding(innerPadding),
-                                viewModel = mainViewModel,
-                                settingsViewModel = settingsViewModel,
-                                // callback для перехода в настройки
-                                onOpenSettings = {
-                                    App.currentScreen = "settings"
-                                }
+                                Modifier.padding(innerPadding),
+                                mainViewModel,
+                                settingsViewModel
                             )
                         }
-                        "settings" -> {
+                        App.Screen.SETTINGS -> {
                             SettingsScreen(
+                                Modifier.padding(innerPadding),
                                 settingsViewModel,
-                                baseFontSizeDp,
-                                {
-                                    val request = OneTimeWorkRequestBuilder<NotificationWorker>().build()
-                                    WorkManager.getInstance(this@MainActivity).enqueue(request)
-                                },
-                                { App.currentScreen = "main" }
+                                App.Screen.MAIN
                             )
                         }
                     }
@@ -105,7 +91,7 @@ class MainActivity : ComponentActivity() {
         checkIntentForJoke(intent)
         // Если пришли из уведомления — принудительно на главный экран
         if (intent.hasExtra("joke_from_notification")) {
-            App.currentScreen = "main"
+            App.currentScreen = App.Screen.MAIN
         }
     }
 
