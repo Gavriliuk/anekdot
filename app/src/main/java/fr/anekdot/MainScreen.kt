@@ -6,13 +6,9 @@ import android.content.Intent
 import android.util.Log
 import android.view.HapticFeedbackConstants
 import android.view.View
-import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -44,10 +40,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -63,15 +63,28 @@ class MainViewModel : ViewModel() {
     private val _jokeText = MutableStateFlow("Нажми на кнопку -\nполучишь анекдот")
     val jokeText = _jokeText.asStateFlow()
 
+    private val _oldJokeText = MutableStateFlow("")
+    val oldJokeText = _oldJokeText.asStateFlow()
+
     private val _isLoading = MutableStateFlow(false)
     val isLoading = _isLoading.asStateFlow()
 
     private val _gradientColors = MutableStateFlow(Util.GetFirstColorPair())
     val gradientColors = _gradientColors.asStateFlow()
 
+    var rotationAngle by mutableFloatStateOf(0f)
+    var rotationTarget by mutableFloatStateOf(0f)
+
+    fun resetRotation() {
+        _oldJokeText.value = _jokeText.value
+        rotationAngle = 0f
+        rotationTarget = 0f
+    }
+
     fun fetchNextJoke() {
         if (_isLoading.value) return
         //Log.d("JokeDebug", "Функция вызвана") // D - Debug
+
         viewModelScope.launch {
             try {
                 _isLoading.value = true
@@ -89,9 +102,15 @@ class MainViewModel : ViewModel() {
     }
 
     fun displayJoke(text: String) {
+        _oldJokeText.value = _jokeText.value
         _jokeText.value = text
         // Выбираем новый случайный индекс градиента
         _gradientColors.value = Util.GetRandomColorPair();
+        if (App.settingsManager.isAnimationEnabled.value) {
+            rotationTarget = -360f // Запускаем вращение
+        } else {
+            _oldJokeText.value = _jokeText.value
+        }
     }
 
     fun onShare(context: Context, text: String) {
@@ -154,45 +173,38 @@ fun MainButton(
 @Composable
 fun MainText(
     viewModel: MainViewModel,
-    settingsViewModel: SettingsViewModel,
-    text: String
+    settingsViewModel: SettingsViewModel
 ) {
+    val text by viewModel.jokeText.collectAsState()
+    val oldText by viewModel.oldJokeText.collectAsState()
     val baseFontSize = App.baseFontSize
     // Читаем значение (от 1 до 5)
     val relativeFontSize by settingsViewModel.relativeFontSize.collectAsState()
     val dynamicFontSize = baseFontSize * 0.2 * (2 + relativeFontSize) // от 0.6 до 1.4
     if (App.settingsManager.isColorStyleEnabled.collectAsState().value) {
-        val gColors by viewModel.gradientColors.collectAsState()
-        AnimatedContent(
-            targetState = text to gColors,
-            transitionSpec = {
-                (fadeIn(animationSpec = tween(600)) +
-                        slideInVertically(animationSpec = tween(600), initialOffsetY = { it / 2 }))
-                    .togetherWith(fadeOut(animationSpec = tween(300)) +
-                            slideOutVertically(animationSpec = tween(300), targetOffsetY = { -it / 2 }))
-            },
-            label = "JokeAnimation"
-        ) { (targetText, _) ->
-            Card(
-                shape = RoundedCornerShape((baseFontSize * 1.6).dp),
-                colors = CardDefaults.cardColors(
-                    // Эффект матового стекла (90% прозрачности)
-                    containerColor = Color.White.copy(alpha = 0.92f)
+        Card(
+            Modifier.graphicsLayer {
+                    // Вращаем по оси Y
+                    this.rotationY = viewModel.rotationAngle
+                    // Добавляем перспективу (чтобы один край казался ближе другого)
+                    cameraDistance = 12f * density
+                },
+            RoundedCornerShape((baseFontSize * 1.6).dp),
+            CardDefaults.cardColors(Color.White.copy(alpha = .9f)),
+            CardDefaults.cardElevation((baseFontSize * .6f).dp)
+        ) {
+            Text(
+                text = if (viewModel.rotationAngle > -180f) oldText else text,
+                fontFamily = ComfortaaFontFamily,
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    color = Color.Black,
+                    fontSize = dynamicFontSize.toSp(),
+                    // Добавим межстрочный интервал для удобства чтения
+                    lineHeight = (dynamicFontSize * 1.4).toSp()
                 ),
-                elevation = CardDefaults.cardElevation(defaultElevation = (baseFontSize * .6).dp)
-            ) {
-                Text(
-                    text = text,
-                    fontFamily = ComfortaaFontFamily,
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        color = Color.Black,
-                        fontSize = dynamicFontSize.toSp(),
-                        // Добавим межстрочный интервал для удобства чтения
-                        lineHeight = (dynamicFontSize * 1.4).toSp()
-                    ),
-                    modifier = Modifier.padding((baseFontSize * 1.4).dp)
-                )
-            }
+                modifier = Modifier.padding((baseFontSize * 1.4).dp)
+                    .graphicsLayer { alpha = if (viewModel.rotationAngle < -90 && viewModel.rotationAngle > -270) 0f else 1f}
+            )
         }
     } else {
         Text(
@@ -201,8 +213,7 @@ fun MainText(
                 fontSize = dynamicFontSize.toSp(),
                 // Добавим межстрочный интервал для удобства чтения
                 lineHeight = (dynamicFontSize * 1.4).toSp()
-            ),
-            modifier = Modifier//.padding((baseFontSize * 1.4).dp)
+            )
         )
     }
 }
@@ -217,6 +228,8 @@ fun MainScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val text by viewModel.jokeText.collectAsState()
 
+    val gColors by viewModel.gradientColors.collectAsState()
+    val (startColor, endColor) = gColors
     val baseFontSize = App.baseFontSize
     val context = LocalContext.current
     val view = LocalView.current
@@ -230,9 +243,28 @@ fun MainScreen(
         }
     }
 
+    val animatableAngle = remember { Animatable(0f) }
+
+    LaunchedEffect(viewModel.rotationTarget) {
+        if (viewModel.rotationTarget != 0f) {
+            if (settingsViewModel.isAnimationEnabled.value) {
+                // Запускаем анимацию до -360
+                animatableAngle.animateTo(
+                    targetValue = viewModel.rotationTarget,
+                    animationSpec = tween(durationMillis = 800, easing = FastOutSlowInEasing)
+                )
+            }
+            // Как только докрутили — мгновенно прыгаем в 0 (без анимации!)
+            animatableAngle.snapTo(0f)
+            // И обнуляем цель во ViewModel, чтобы быть готовыми к следующему разу
+            viewModel.resetRotation()
+        }
+    }
+
+    // Обновляем текущий угол во ViewModel, чтобы MainText его видел
+    viewModel.rotationAngle = animatableAngle.value
+
     val boxModifier = if (isColored) {
-        val gColors by viewModel.gradientColors.collectAsState()
-        val (startColor, endColor) = gColors
         modifier.background(Brush.verticalGradient(listOf(startColor, endColor)))
     } else {
         modifier
@@ -248,11 +280,17 @@ fun MainScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            if (isLoading) { // Большая белая крутилка на цветном фоне
-                val color = if (isColored) Color.White else ProgressIndicatorDefaults.circularColor
-                CircularProgressIndicator(Modifier.size((baseFontSize * 12).dp), color, (baseFontSize * .8).dp)
-            } else {
-                MainText(viewModel, settingsViewModel, text)
+            MainText(viewModel, settingsViewModel)
+        }
+
+        if (isLoading) { // Большая крутилка на фоне текста
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                val color = if (isColored) startColor else ProgressIndicatorDefaults.circularColor
+                CircularProgressIndicator(Modifier.size((baseFontSize * 12).dp), color, baseFontSize.dp)
             }
         }
 

@@ -17,6 +17,7 @@ class SettingsManager {
     // Ключи, по которым будем сохранять данные
     companion object {
         val RELATIVE_FONT_SIZE = intPreferencesKey("relative_font_size")
+        val IS_ANIMATION_ENABLED = booleanPreferencesKey("is_animation_enabled")
         val IS_COLOR_STYLE_ENABLED = booleanPreferencesKey("is_color_style_enabled")
         val IS_LAUGH_SOUND_ENABLED = booleanPreferencesKey("is_laugh_sound_enabled")
         val IS_CLICK_SOUND_ENABLED = booleanPreferencesKey("is_click_sound_enabled")
@@ -33,6 +34,10 @@ class SettingsManager {
         pref[RELATIVE_FONT_SIZE] ?: 3
     }.stateIn(scope, SharingStarted.Eagerly, 3)
 
+    val isAnimationEnabled: StateFlow<Boolean> = context.dataStore.data.map { pref ->
+        pref[IS_ANIMATION_ENABLED] ?: true
+    }.stateIn(scope, SharingStarted.Eagerly, true)
+
     val isColorStyleEnabled: StateFlow<Boolean> = context.dataStore.data.map { pref ->
         pref[IS_COLOR_STYLE_ENABLED] ?: true
     }.stateIn(scope, SharingStarted.Eagerly, true)
@@ -48,6 +53,10 @@ class SettingsManager {
     // Методы для сохранения (записи)
     suspend fun saveFontSize(size: Int) {
         context.dataStore.edit { pref -> pref[RELATIVE_FONT_SIZE] = size }
+    }
+
+    suspend fun saveAnimationEnabled(enabled: Boolean) {
+        context.dataStore.edit { pref -> pref[IS_ANIMATION_ENABLED] = enabled }
     }
 
     suspend fun saveColorStyleEnabled(enabled: Boolean) {

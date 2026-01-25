@@ -74,6 +74,9 @@ class SettingsViewModel : ViewModel() {
         .map { it.coerceIn(1, 5) } // Вот она, железная защита
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 3)
 
+    val isAnimationEnabled = settingsManager.isAnimationEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
     val isColorStyleEnabled = settingsManager.isColorStyleEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
@@ -86,6 +89,10 @@ class SettingsViewModel : ViewModel() {
     // Методы для изменения настроек
     fun updateFontSize(level: Int) {
         viewModelScope.launch { settingsManager.saveFontSize(level) }
+    }
+
+    fun setAnimationEnabled(enabled: Boolean) {
+        viewModelScope.launch { settingsManager.saveAnimationEnabled(enabled) }
     }
 
     fun setColorStyleEnabled(enabled: Boolean) {
@@ -230,6 +237,7 @@ fun SettingsContent(
     ) {
         // Собираем значения из ViewModel
         val relativeFontSize by viewModel.relativeFontSize.collectAsState()
+        val isAnimationEnabled by viewModel.isAnimationEnabled.collectAsState()
         val isColorStyleEnabled by viewModel.isColorStyleEnabled.collectAsState()
         val isLaughSoundEnabled by viewModel.isLaughSoundEnabled.collectAsState()
         val isClickSoundEnabled by viewModel.isClickSoundEnabled.collectAsState()
@@ -260,6 +268,12 @@ fun SettingsContent(
         }
 
         // Блок разметки
+        SettingsContentGroup(viewModel) {
+            SettingRow("Анимация", isAnimationEnabled, viewModel) {
+                viewModel.setAnimationEnabled(it)
+            }
+        }
+
         SettingsContentGroup(viewModel) {
             SettingRow("Цветной фон", isColorStyleEnabled, viewModel) {
                 if (it) viewModel.chooseRandomColors()
