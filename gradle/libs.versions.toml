@@ -1,5 +1,6 @@
 [versions]
 agp = "9.0.0"
+appUpdateKtx = "2.1.0"
 datastorePreferences = "1.2.0"
 kotlin = "2.3.0"
 coreKtx = "1.17.0"
@@ -20,6 +21,7 @@ animation = "1.10.1"
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastorePreferences" }
+app-update-ktx = { module = "com.google.android.play:app-update-ktx", version.ref = "appUpdateKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
