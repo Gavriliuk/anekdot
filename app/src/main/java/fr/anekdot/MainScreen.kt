@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -44,11 +45,16 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
@@ -57,6 +63,10 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.shreyaspatil.capturable.capturable
+import dev.shreyaspatil.capturable.controller.CaptureController
+import dev.shreyaspatil.capturable.controller.rememberCaptureController
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -124,22 +134,30 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    fun onShare(context: Context, text: String) {
-        if (!_isLoading.value && text.isNotBlank()) {
+    fun onShare(context: Context, controller: CaptureController, scope: CoroutineScope) {
+        if (!_isLoading.value && _jokeText.value.isNotBlank()) {
             // Берем настройки напрямую из менеджера
             if (App.settingsManager.isClickSoundEnabled.value) {
                 SoundManager.playSound(R.raw.svist_fit_ha)
             }
 
-            val shareText = "${text}\n\nВы хочете шуток? Их есть у меня:\n" +
+            val title = "Вы хочете шуток? Их есть у меня:\n" +
                     "https://play.google.com/store/apps/details?id=fr.anekdot"
 
-            val sendIntent = Intent().apply {
-                action = Intent.ACTION_SEND
-                putExtra(Intent.EXTRA_TEXT, shareText)
-                type = "text/plain"
+            if (App.settingsManager.isColorStyleEnabled.value) {
+                scope.launch {
+                    withFrameNanos { } // Ожидание завершения фаз Measure/Layout/Draw
+                    val bitmap = controller.captureAsync().await()
+                    Util.SaveAndShareImage(context, bitmap.asAndroidBitmap(), title)
+                }
+            } else {
+                val sendIntent = Intent().apply {
+                    action = Intent.ACTION_SEND
+                    putExtra(Intent.EXTRA_TEXT, "${_jokeText.value}\n\n$title")
+                    type = "text/plain"
+                }
+                context.startActivity(Intent.createChooser(sendIntent, null))
             }
-            context.startActivity(Intent.createChooser(sendIntent, null))
         }
     }
 
@@ -155,7 +173,7 @@ class MainViewModel : ViewModel() {
 
     fun onSettings(settingsViewModel: SettingsViewModel) {
         if (App.settingsManager.isClickSoundEnabled.value) {
-            SoundManager.playSound(R.raw.button)
+            SoundManager.playSystemClick()
         }
         if (App.settingsManager.isColorStyleEnabled.value) {
             settingsViewModel.chooseRandomColors()
@@ -176,7 +194,7 @@ fun MainButton(
     val containerColor = if (isColorStyle) Color.White else MaterialTheme.colorScheme.surface
     val contentColor = if (isColorStyle) viewModel.gradientColors.collectAsState().value.first else MaterialTheme.colorScheme.onSurface
     val elevation = if (isColorStyle) FloatingActionButtonDefaults.elevation((iconSize * .2).dp) else FloatingActionButtonDefaults.elevation()
-    FloatingActionButton(onClick, Modifier, CircleShape, containerColor, contentColor, elevation) {
+    FloatingActionButton(onClick, Modifier.size((iconSize * 1.2).dp), CircleShape, containerColor, contentColor, elevation) {
         Icon(imageVector, contentDescription, Modifier.size(iconSize.dp))
     }
 }
@@ -186,6 +204,7 @@ fun MainTextColored(
     viewModel: MainViewModel,
     dynamicFontSize: Double
 ) {
+    val baseFontSize = App.baseFontSize
     Card(
         Modifier.graphicsLayer {
                 // Вращаем по оси Y
@@ -193,9 +212,9 @@ fun MainTextColored(
                 // Добавляем перспективу (чтобы один край казался ближе другого)
                 cameraDistance = 12f * density
             },
-        RoundedCornerShape((App.baseFontSize * 1.6).dp),
+        RoundedCornerShape((baseFontSize * 1.6).dp),
         CardDefaults.cardColors(Color.White.copy(alpha = .9f)),
-        CardDefaults.cardElevation((App.baseFontSize * .6f).dp)
+        CardDefaults.cardElevation((baseFontSize * .6f).dp)
     ) {
         Text(
             text = if (viewModel.rotationAngle > -180f) viewModel.oldJokeText.collectAsState().value else viewModel.jokeText.collectAsState().value,
@@ -206,7 +225,7 @@ fun MainTextColored(
                 // Добавим межстрочный интервал для удобства чтения
                 lineHeight = (dynamicFontSize * 1.4).toSp()
             ),
-            modifier = Modifier.padding((App.baseFontSize * 1.4).dp)
+            modifier = Modifier.padding((baseFontSize * 1.4).dp)
                 .graphicsLayer { alpha = if (viewModel.rotationAngle < -90 && viewModel.rotationAngle > -270) 0f else 1f}
         )
     }
@@ -228,6 +247,32 @@ fun MainTextClassic(
 }
 
 @Composable
+fun MainTextCapture(
+    viewModel: MainViewModel
+) {
+    val baseFontSize = App.baseFontSize
+    Card(
+        Modifier.padding(baseFontSize.dp),
+        RoundedCornerShape((baseFontSize * 1.6).dp),
+        CardDefaults.cardColors(Color.White.copy(alpha = .9f)),
+        CardDefaults.cardElevation((baseFontSize * .6f).dp)
+    ) {
+        Text(
+            viewModel.jokeText.collectAsState().value,
+            Modifier.padding((baseFontSize * 1.4).dp),
+            fontFamily = ComfortaaFontFamily,
+            style = MaterialTheme.typography.bodyLarge.copy(
+                color = Color.Black,
+                fontSize = baseFontSize.toSp(),
+                // Добавим межстрочный интервал для удобства чтения
+                lineHeight = (baseFontSize * 1.4).toSp()
+            )
+        )
+    }
+}
+
+@Composable
+@OptIn(ExperimentalComposeUiApi::class)
 fun MainScreen(
     modifier: Modifier,
     viewModel: MainViewModel,
@@ -236,9 +281,10 @@ fun MainScreen(
     val isColored by App.settingsManager.isColorStyleEnabled.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val text by viewModel.jokeText.collectAsState()
-
     val gColors by viewModel.gradientColors.collectAsState()
     val (startColor, endColor) = gColors
+    val captureController = rememberCaptureController()
+    val captureScope = rememberCoroutineScope()
     val baseFontSize = App.baseFontSize
     val context = LocalContext.current
     val view = LocalView.current
@@ -273,15 +319,21 @@ fun MainScreen(
         }
     }
 
+    Box(modifier // --- СКРЫТЫЙ СЛОЙ (для захвата) ---
+        .alpha(0f) // Делаем невидимым
+        .capturable(captureController)
+        .fillMaxWidth()
+        .wrapContentHeight()
+        .pointerInput(Unit) {}
+        .background(Brush.verticalGradient(listOf(startColor, endColor)))
+    ) {
+        MainTextCapture(viewModel)
+    }
+
     // Обновляем текущий угол во ViewModel, чтобы MainText его видел
     viewModel.rotationAngle = animatableAngle.value
 
-    val boxModifier = if (isColored) {
-        modifier.background(Brush.verticalGradient(listOf(startColor, endColor)))
-    } else {
-        modifier
-    }
-
+    val boxModifier = if (isColored) modifier.background(Brush.verticalGradient(listOf(startColor, endColor))) else modifier
     Box(boxModifier.fillMaxSize()) {
         // Основной контент теперь занимает всё место, центрируясь
         Column(Modifier
@@ -323,7 +375,7 @@ fun MainScreen(
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                MainButton(viewModel, Icons.Default.Share, "Поделиться", baseFontSize * 2) { viewModel.onShare(context, text) }
+                MainButton(viewModel, Icons.Default.Share, "Поделиться", baseFontSize * 2) { viewModel.onShare(context, captureController, captureScope) }
                 MainButton(viewModel, Icons.Default.Refresh, "Следующий", baseFontSize * 4) { viewModel.onNext(context, view) }
                 MainButton(viewModel, Icons.Default.Settings, "Настройки", baseFontSize * 2) { viewModel.onSettings(settingsViewModel) }
             }

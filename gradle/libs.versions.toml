@@ -1,7 +1,10 @@
 [versions]
+activityVersion = "1.12.2"
 agp = "9.0.0"
 appUpdateKtx = "2.1.0"
+capturable = "3.0.1"
 datastorePreferences = "1.2.0"
+fragmentVersion = "1.8.9"
 kotlin = "2.3.0"
 coreKtx = "1.17.0"
 junit = "4.13.2"
@@ -13,15 +16,18 @@ composeBom = "2026.01.00"
 playServicesBasement = "18.10.0"
 retrofit = "3.0.0"
 converterKotlinxSerialization = "3.0.0"
-converterKotlinxSerializationJson = "1.9.0"
+converterKotlinxSerializationJson = "1.10.0"
 materialIconsExtended = "1.7.8"
 workRuntimeKtx = "2.11.0"
 animation = "1.10.1"
 
 [libraries]
+androidx-activity-ktx = { module = "androidx.activity:activity-ktx", version.ref = "activityVersion" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastorePreferences" }
+androidx-fragment-ktx = { module = "androidx.fragment:fragment-ktx", version.ref = "fragmentVersion" }
 app-update-ktx = { module = "com.google.android.play:app-update-ktx", version.ref = "appUpdateKtx" }
+capturable = { module = "dev.shreyaspatil:capturable", version.ref = "capturable" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }

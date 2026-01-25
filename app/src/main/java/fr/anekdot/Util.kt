@@ -1,12 +1,25 @@
 package fr.anekdot
 
+import android.content.Context
+import android.content.Intent
+import android.graphics.Bitmap
+import android.media.AudioManager
 import android.media.MediaPlayer
+import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat.startActivity
+import androidx.core.content.FileProvider
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class Util {
     companion object {
@@ -41,11 +54,46 @@ class Util {
         )
 
         fun GetRandomLaugh() = laughterResources.random()
+
+        fun SaveAndShareImage(context: Context, bitmap: Bitmap, title: String) {
+            try {
+                // 1. Создаем папку в кэше
+                val cachePath = File(context.cacheDir, "images")
+                cachePath.mkdirs()
+
+                // 2. Создаем сам файл
+                val ts = SimpleDateFormat("yyMMdd_HHmmss", Locale.getDefault()).format(Date())
+                val file = File(cachePath, "anekdot_$ts.png")
+                val stream = FileOutputStream(file)
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+                stream.close()
+
+                // 3. Получаем безопасный URI через FileProvider
+                val contentUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+
+                // 4. Создаем Intent для шаринга
+                val intent = Intent(Intent.ACTION_SEND).apply {
+                    type = "image/png"
+                    putExtra(Intent.EXTRA_STREAM, contentUri)
+                    putExtra(Intent.EXTRA_TEXT, title)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) // Даем права на чтение
+                }
+
+                context.startActivity(Intent.createChooser(intent, "Поделиться анекдотом"))
+            } catch (e: IOException) {
+                Log.e("Share", "Ошибка при сохранении картинки", e)
+            }
+        }
     }
 }
 
 object SoundManager {
     private var mediaPlayer: MediaPlayer? = null
+
+    fun playSystemClick() {
+        val audioManager = App.getContext().getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        audioManager.playSoundEffect(AudioManager.FX_KEY_CLICK)
+    }
 
     fun playSound(resId: Int) {
         mediaPlayer?.release() // Освобождаем ресурсы предыдущего звука

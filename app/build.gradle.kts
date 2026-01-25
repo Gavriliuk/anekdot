@@ -51,6 +51,8 @@ kotlin {
 }
 
 dependencies {
+    implementation(libs.androidx.activity.ktx)
+    implementation(libs.androidx.fragment.ktx)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
@@ -68,6 +70,7 @@ dependencies {
     implementation(libs.converter.kotlinx.serialization)
     implementation(libs.converter.kotlinx.serialization.json)
     implementation(libs.play.services.basement)
+    implementation(libs.capturable)
     implementation(libs.retrofit)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
