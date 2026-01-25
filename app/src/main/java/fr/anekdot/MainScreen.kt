@@ -35,6 +35,8 @@ import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProgressIndicatorDefaults
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -55,7 +57,9 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
@@ -68,6 +72,9 @@ class MainViewModel : ViewModel() {
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading = _isLoading.asStateFlow()
+
+    private val _errorEvent = MutableSharedFlow<String>()
+    val errorEvent = _errorEvent.asSharedFlow()
 
     private val _gradientColors = MutableStateFlow(Util.GetFirstColorPair())
     val gradientColors = _gradientColors.asStateFlow()
@@ -83,18 +90,23 @@ class MainViewModel : ViewModel() {
 
     fun fetchNextJoke() {
         if (_isLoading.value) return
-        //Log.d("JokeDebug", "Функция вызвана") // D - Debug
+        //Log.d("Anekdot", "Функция вызвана")
 
+        _oldJokeText.value = _jokeText.value
         viewModelScope.launch {
             try {
                 _isLoading.value = true
-                //Log.d("JokeDebug", "Начинаем запрос...")
+                //Log.d("Anekdot", "Начинаем запрос...")
                 val response = RetrofitInstance.api.getRandomJoke()
-                //Log.d("JokeDebug", "Успех: ${response.p.text}")
-                displayJoke(response.p.text)
+                //Log.d("Anekdot", "Успех: ${response.p.text}")
+                if (response.p.text.isNotBlank()) {
+                    displayJoke(response.p.text)
+                } else {
+                    _errorEvent.emit("Сервер прислал пустой ответ")
+                }
             } catch (e: Exception) {
-                Log.e("JokeDebug", "Ошибка запроса", e)
-                _jokeText.value = "Ошибка: ${e.message}"
+                Log.e("Anekdot", "Ошибка сети", e)
+                _errorEvent.emit( "Ошибка сети: ${e.message}")
             } finally {
                 _isLoading.value = false
             }
@@ -102,7 +114,6 @@ class MainViewModel : ViewModel() {
     }
 
     fun displayJoke(text: String) {
-        _oldJokeText.value = _jokeText.value
         _jokeText.value = text
         // Выбираем новый случайный индекс градиента
         _gradientColors.value = Util.GetRandomColorPair();
@@ -234,6 +245,13 @@ fun MainScreen(
     val context = LocalContext.current
     val view = LocalView.current
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(Unit) {
+        viewModel.errorEvent.collect { message ->
+            snackbarHostState.showSnackbar(message, "OK")
+        }
+    }
+
     LaunchedEffect(text) { // Если пришел анекдот и повезло (шанс 1 к 7)
         if (settingsViewModel.isLaughSoundEnabled.value && text.length > 50 && (1..3).random() == 1) {
             kotlinx.coroutines.delay((2000..5000).random().toLong())
@@ -269,6 +287,7 @@ fun MainScreen(
     } else {
         modifier
     }
+
     Box(boxModifier.fillMaxSize()) {
         // Основной контент теперь занимает всё место, центрируясь
         Column(
@@ -314,5 +333,12 @@ fun MainScreen(
                 Box(Modifier.matchParentSize().pointerInput(Unit) { detectTapGestures { } })
             }
         }
+
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = baseFontSize.dp) // Поднимаем его ЧУТЬ ВЫШЕ кнопок
+        )
     }
 }
