@@ -1,12 +1,10 @@
 package fr.anekdot
 
-import SettingsManager
 import android.app.Application
 import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalConfiguration
 
 class App : Application() {
     enum class Screen {

@@ -12,8 +12,8 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat.startActivity
 import androidx.core.content.FileProvider
+import kotlinx.coroutines.flow.MutableSharedFlow
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -33,9 +33,9 @@ class Util {
             Color(0xFFA8E063) to Color(0xFF56AB2F)  // Сочное яблоко
         )
 
-        fun GetFirstColorPair(): Pair<Color, Color> = gradientPresets[0]
+        fun getFirstColorPair(): Pair<Color, Color> = gradientPresets[0]
 
-        fun GetRandomColorPair(): Pair<Color, Color> = gradientPresets[(gradientPresets.indices).random()]
+        fun getRandomColorPair(): Pair<Color, Color> = gradientPresets[(gradientPresets.indices).random()]
 
         // Source: https://zvukogram.com/
         private val laughterResources = listOf(
@@ -53,9 +53,10 @@ class Util {
             R.raw.vulgar_female_laughter, R.raw.witch_single_long_rhythmic, R.raw.woman_laughing
         )
 
-        fun GetRandomLaugh() = laughterResources.random()
+        fun getRandomLaugh() = laughterResources.random()
 
-        fun SaveAndShareImage(context: Context, bitmap: Bitmap, title: String) {
+        suspend fun saveAndShareImage(context: Context, bitmap: Bitmap, title: String, errorEvent: MutableSharedFlow<String>
+        ) {
             try {
                 // 1. Создаем папку в кэше
                 val cachePath = File(context.cacheDir, "images")
@@ -81,7 +82,11 @@ class Util {
 
                 context.startActivity(Intent.createChooser(intent, "Поделиться анекдотом"))
             } catch (e: IOException) {
-                Log.e("Share", "Ошибка при сохранении картинки", e)
+                if (BuildConfig.DEBUG) {
+                    Log.e("SaveAndShareImage", "Ошибка при сохранении картинки", e)
+                }
+                // Вызываем напрямую, так как мы уже в suspend функции
+                errorEvent.emit("Ошибка при сохранении картинки")
             }
         }
     }

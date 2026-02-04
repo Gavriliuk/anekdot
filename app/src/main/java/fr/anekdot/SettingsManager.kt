@@ -1,7 +1,8 @@
+package fr.anekdot
+
 import android.content.Context
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
-import fr.anekdot.App
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob

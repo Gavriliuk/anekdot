@@ -1,6 +1,5 @@
 package fr.anekdot
 
-import SettingsViewModel
 import android.content.Context
 import android.content.Intent
 import android.util.Log
@@ -36,6 +35,7 @@ import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProgressIndicatorDefaults
+import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -86,7 +86,7 @@ class MainViewModel : ViewModel() {
     private val _errorEvent = MutableSharedFlow<String>()
     val errorEvent = _errorEvent.asSharedFlow()
 
-    private val _gradientColors = MutableStateFlow(Util.GetFirstColorPair())
+    private val _gradientColors = MutableStateFlow(Util.getFirstColorPair())
     val gradientColors = _gradientColors.asStateFlow()
 
     var rotationAngle by mutableFloatStateOf(0f)
@@ -105,6 +105,7 @@ class MainViewModel : ViewModel() {
         _oldJokeText.value = _jokeText.value
         viewModelScope.launch {
             try {
+                //throw Exception("Длинное сообщение об ошибке, которое не помещается в одну строку")
                 _isLoading.value = true
                 //Log.d("Anekdot", "Начинаем запрос...")
                 val response = RetrofitInstance.api.getRandomJoke()
@@ -115,7 +116,9 @@ class MainViewModel : ViewModel() {
                     _errorEvent.emit("Сервер прислал пустой ответ")
                 }
             } catch (e: Exception) {
-                Log.e("Anekdot", "Ошибка сети", e)
+                if (BuildConfig.DEBUG) {
+                    Log.e("Anekdot", "Ошибка сети", e)
+                }
                 _errorEvent.emit( "Ошибка сети: ${e.message}")
             } finally {
                 _isLoading.value = false
@@ -126,7 +129,7 @@ class MainViewModel : ViewModel() {
     fun displayJoke(text: String) {
         _jokeText.value = text
         // Выбираем новый случайный индекс градиента
-        _gradientColors.value = Util.GetRandomColorPair();
+        _gradientColors.value = Util.getRandomColorPair();
         if (App.settingsManager.isAnimationEnabled.value) {
             rotationTarget = -360f // Запускаем вращение
         } else {
@@ -148,7 +151,7 @@ class MainViewModel : ViewModel() {
                 scope.launch {
                     withFrameNanos { } // Ожидание завершения фаз Measure/Layout/Draw
                     val bitmap = controller.captureAsync().await()
-                    Util.SaveAndShareImage(context, bitmap.asAndroidBitmap(), title)
+                    Util.saveAndShareImage(context, bitmap.asAndroidBitmap(), title, _errorEvent)
                 }
             } else {
                 val sendIntent = Intent().apply {
@@ -300,7 +303,7 @@ fun MainScreen(
         if (settingsViewModel.isLaughSoundEnabled.value && text.length > 50 && (1..3).random() == 1) {
             kotlinx.coroutines.delay((2000..5000).random().toLong())
             if (settingsViewModel.isLaughSoundEnabled.value) {
-                SoundManager.playSound(Util.GetRandomLaugh())
+                SoundManager.playSound(Util.getRandomLaugh())
             }
         }
     }
@@ -389,8 +392,25 @@ fun MainScreen(
         SnackbarHost(
             hostState = snackbarHostState,
             modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = baseFontSize.dp) // Поднимаем его ЧУТЬ ВЫШЕ кнопок
-        )
+                .fillMaxSize() // Раздуваем хост на весь экран
+                .then( // Блокируем нажатия ТОЛЬКО если в хосте что-то есть
+                    if (snackbarHostState.currentSnackbarData != null) {
+                        Modifier.pointerInput(Unit) { detectTapGestures { } }
+                    } else {
+                        Modifier
+                    }
+                )
+        ) { data ->
+            // Внутри самого хоста мы возвращаем стандартный Snackbar,
+            // чтобы он остался маленьким и красивым внизу
+            Box(Modifier.fillMaxSize()) {
+                Snackbar(
+                    snackbarData = data,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = baseFontSize.dp)
+                )
+            }
+        }
     }
 }

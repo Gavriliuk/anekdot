@@ -1,3 +1,5 @@
+package fr.anekdot
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -61,12 +63,12 @@ class SettingsViewModel : ViewModel() {
     // ViewModel сама знает, где лежат настройки
     private val settingsManager = App.settingsManager
 
-    private val _gradientColors = MutableStateFlow(Util.GetFirstColorPair())
+    private val _gradientColors = MutableStateFlow(Util.getFirstColorPair())
     val gradientColors = _gradientColors.asStateFlow()
 
     fun chooseRandomColors() {
         // Выбираем новый случайный индекс градиента
-        _gradientColors.value = Util.GetRandomColorPair();
+        _gradientColors.value = Util.getRandomColorPair();
     }
 
     // Превращаем Flow из SettingsManager в StateFlow для Compose

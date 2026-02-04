@@ -1,7 +1,5 @@
 package fr.anekdot
 
-import SettingsScreen
-import SettingsViewModel
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
@@ -35,7 +33,9 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.StartIntentSenderForResult()
     ) { result ->
         if (result.resultCode != RESULT_OK) {
-            Log.e("Update", "Пользователь отклонил обновление или произошла ошибка")
+            if (BuildConfig.DEBUG) {
+                Log.e("Update", "Пользователь отклонил обновление или произошла ошибка")
+            }
             // Здесь можно что-то сделать, если обновление критично
         }
     }
@@ -75,7 +75,9 @@ class MainActivity : ComponentActivity() {
         try {
             ProviderInstaller.installIfNeeded(this)
         } catch (e: Exception) {
-            Log.e("Anekdot", "Не удалось обновить поставщика безопасности", e)
+            if (BuildConfig.DEBUG) {
+                Log.e("Anekdot", "Не удалось обновить поставщика безопасности", e)
+            }
         }
 
         // Вызываем загрузку только при ПЕРВОМ запуске приложения
