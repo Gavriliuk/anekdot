@@ -19,6 +19,7 @@ class SettingsManager {
         val RELATIVE_FONT_SIZE = intPreferencesKey("relative_font_size")
         val IS_ANIMATION_ENABLED = booleanPreferencesKey("is_animation_enabled")
         val IS_COLOR_STYLE_ENABLED = booleanPreferencesKey("is_color_style_enabled")
+        val IS_COLOR_SHARE_ENABLED = booleanPreferencesKey("is_color_share_enabled")
         val IS_LAUGH_SOUND_ENABLED = booleanPreferencesKey("is_laugh_sound_enabled")
         val IS_CLICK_SOUND_ENABLED = booleanPreferencesKey("is_click_sound_enabled")
     }
@@ -42,6 +43,10 @@ class SettingsManager {
         pref[IS_COLOR_STYLE_ENABLED] ?: true
     }.stateIn(scope, SharingStarted.Eagerly, true)
 
+    val isColorShareEnabled: StateFlow<Boolean> = context.dataStore.data.map { pref ->
+        pref[IS_COLOR_SHARE_ENABLED] ?: true
+    }.stateIn(scope, SharingStarted.Eagerly, true)
+
     val isLaughSoundEnabled: StateFlow<Boolean> = context.dataStore.data.map { pref ->
         pref[IS_LAUGH_SOUND_ENABLED] ?: true
     }.stateIn(scope, SharingStarted.Eagerly, true)
@@ -61,6 +66,10 @@ class SettingsManager {
 
     suspend fun saveColorStyleEnabled(enabled: Boolean) {
         context.dataStore.edit { pref -> pref[IS_COLOR_STYLE_ENABLED] = enabled }
+    }
+
+    suspend fun saveColorShareEnabled(enabled: Boolean) {
+        context.dataStore.edit { pref -> pref[IS_COLOR_SHARE_ENABLED] = enabled }
     }
 
     suspend fun saveLaughSoundEnabled(enabled: Boolean) {

@@ -80,6 +80,9 @@ class SettingsViewModel : ViewModel() {
     val isColorStyleEnabled = settingsManager.isColorStyleEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
+    val isColorShareEnabled = settingsManager.isColorShareEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
     val isLaughSoundEnabled = settingsManager.isLaughSoundEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
@@ -97,6 +100,10 @@ class SettingsViewModel : ViewModel() {
 
     fun setColorStyleEnabled(enabled: Boolean) {
         viewModelScope.launch { settingsManager.saveColorStyleEnabled(enabled) }
+    }
+
+    fun setColorShareEnabled(enabled: Boolean) {
+        viewModelScope.launch { settingsManager.saveColorShareEnabled(enabled) }
     }
 
     fun setLaughSoundEnabled(enabled: Boolean) {
@@ -233,12 +240,13 @@ fun SettingsContent(
             .verticalScroll(rememberScrollState())
             .padding(top = (App.baseFontSize * .4).dp)
             .padding(horizontal = (App.baseFontSize * (if (isColorStyleEnabled) .9 else 1.5)).dp),
-        verticalArrangement = Arrangement.spacedBy((App.baseFontSize * 1.5).dp)
+        verticalArrangement = Arrangement.spacedBy(App.baseFontSize.dp)
     ) {
         // Собираем значения из ViewModel
         val relativeFontSize by viewModel.relativeFontSize.collectAsState()
         val isAnimationEnabled by viewModel.isAnimationEnabled.collectAsState()
         val isColorStyleEnabled by viewModel.isColorStyleEnabled.collectAsState()
+        val isColorShareEnabled by viewModel.isColorShareEnabled.collectAsState()
         val isLaughSoundEnabled by viewModel.isLaughSoundEnabled.collectAsState()
         val isClickSoundEnabled by viewModel.isClickSoundEnabled.collectAsState()
         val gColors by viewModel.gradientColors.collectAsState()
@@ -278,6 +286,12 @@ fun SettingsContent(
             SettingRow("Цветной фон", isColorStyleEnabled, viewModel) {
                 if (it) viewModel.chooseRandomColors()
                 viewModel.setColorStyleEnabled(it)
+            }
+        }
+
+        SettingsContentGroup(viewModel) {
+            SettingRow("Цветной лайк", isColorShareEnabled, viewModel) {
+                viewModel.setColorShareEnabled(it)
             }
         }
 

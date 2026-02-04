@@ -144,7 +144,7 @@ class MainViewModel : ViewModel() {
             val title = "Вы хочете шуток? Их есть у меня:\n" +
                     "https://play.google.com/store/apps/details?id=fr.anekdot"
 
-            if (App.settingsManager.isColorStyleEnabled.value) {
+            if (App.settingsManager.isColorShareEnabled.value) {
                 scope.launch {
                     withFrameNanos { } // Ожидание завершения фаз Measure/Layout/Draw
                     val bitmap = controller.captureAsync().await()
