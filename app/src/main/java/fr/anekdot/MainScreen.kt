@@ -144,7 +144,7 @@ class MainViewModel : ViewModel() {
                 SoundManager.playSound(R.raw.svist_fit_ha)
             }
 
-            val title = "Вы хочете шуток? Их есть у меня:\n" +
+            val title = Util.getRandomSharingTitle() + ":\n" +
                     "https://play.google.com/store/apps/details?id=fr.anekdot"
 
             if (App.settingsManager.isColorShareEnabled.value) {
