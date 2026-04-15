@@ -17,8 +17,8 @@ android {
         applicationId = "fr.anekdot"
         minSdk = 23
         targetSdk = 36
-        versionCode = 5
-        versionName = "2.13"
+        versionCode = 6
+        versionName = "2.22"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
