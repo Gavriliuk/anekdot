@@ -1,10 +1,13 @@
 package fr.anekdot
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.util.Log
 import android.view.HapticFeedbackConstants
 import android.view.View
+import android.widget.Toast
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -154,6 +157,9 @@ class MainViewModel : ViewModel() {
                     Util.saveAndShareImage(context, bitmap.asAndroidBitmap(), title, _errorEvent)
                 }
             } else {
+                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText("Anekdot", _jokeText.value))
+                Toast.makeText(context, "Текст скопирован в буфер", Toast.LENGTH_SHORT).show()
                 val sendIntent = Intent().apply {
                     action = Intent.ACTION_SEND
                     putExtra(Intent.EXTRA_TEXT, "${_jokeText.value}\n\n$title")
