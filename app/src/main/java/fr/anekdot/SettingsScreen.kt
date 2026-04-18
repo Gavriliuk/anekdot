@@ -48,10 +48,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
-import fr.anekdot.App
-import fr.anekdot.NotificationWorker
-import fr.anekdot.Util
-import fr.anekdot.toSp
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
@@ -315,10 +311,7 @@ fun SettingsContent(
             Button(
                 onClick = { viewModel.sendDaylyJokeNotification() },
                 colors = buttonColors,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = (App.baseFontSize * .6).dp)
-                    .requiredHeight((App.baseFontSize * 2).dp)
+                modifier = Modifier.fillMaxWidth().padding(vertical = (App.baseFontSize * .6).dp)
             ) {
                 Text("Анекдот дня", fontSize = App.baseFontSize.toSp())
             }
